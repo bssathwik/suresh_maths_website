@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity validation helpers
+    function isValidSubject(data) {
+      return data.keys().hasAll(['id', 'name', 'icon', 'color']) 
+          && data.keys().size() >= 4
+          && data.id is string && data.id.size() <= 64
+          && data.name is string && data.name.size() <= 100
+          && data.icon is string && data.icon.size() <= 50
+          && data.color is string && data.color.size() <= 50;
+    }
+
+    function isValidResource(data) {
+      return data.keys().hasAll(['id', 'subjectId', 'classId', 'title', 'type', 'url'])
+          && data.keys().size() >= 6
+          && data.id is string && data.id.size() <= 64
+          && data.subjectId is string && data.subjectId.size() <= 64
+          && data.classId is string && data.classId.size() <= 10
+          && data.title is string && data.title.size() <= 200
+          && data.type in ['pdf', 'worksheet', 'youtube']
+          && data.url is string && data.url.size() <= 1000;
+    }
+
+    function isValidQuiz(data) {
+      return data.keys().hasAll(['id', 'subjectId', 'classId', 'title', 'questions'])
+          && data.keys().size() >= 5
+          && data.questions is list && data.questions.size() <= 100;
+    }
+
+    function isValidWorksheet(data) {
+      return data.keys().hasAll(['id', 'subjectId', 'classId', 'title', 'items'])
+          && data.keys().size() >= 5
+          && data.items is list && data.items.size() <= 100;
+    }
+
+    // Collections
+    match /subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidSubject(request.resource.data);
+    }
+
+    match /resources/{resourceId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidResource(request.resource.data);
+    }
+
+    match /quizzes/{quizId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidQuiz(request.resource.data);
+    }
+
+    match /worksheets/{worksheetId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidWorksheet(request.resource.data);
+    }
+
+    match /admins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn() && request.auth.token.email == 'balabhadrasaisathwik@gmail.com' && request.auth.uid == uid;
+    }
+  }
+}

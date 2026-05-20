@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "Subject": {
+      "title": "Subject",
+      "description": "Educational subject category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "icon", "color"]
+    },
+    "Resource": {
+      "title": "Resource",
+      "description": "Learning resource like PDF, YouTube video, or Worksheet link",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "classId": { "type": "string" },
+        "title": { "type": "string" },
+        "chapter": { "type": "string" },
+        "type": { "type": "string", "enum": ["pdf", "worksheet", "youtube"] },
+        "url": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "classId", "title", "type", "url"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Interactive quiz for a subject and class",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "classId": { "type": "string" },
+        "title": { "type": "string" },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "options": { "type": "array", "items": { "type": "string" } },
+              "correctAnswer": { "type": "number" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "classId", "title", "questions"]
+    },
+    "Worksheet": {
+      "title": "Worksheet",
+      "description": "Set of practice questions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "classId": { "type": "string" },
+        "title": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "question": { "type": "string" },
+              "correctAnswer": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "subjectId", "classId", "title", "items"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Whitelisted administrator",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin"] }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "subjects": { "schema": "Subject", "description": "Collection of subjects" },
+    "resources": { "schema": "Resource", "description": "Collection of all resources" },
+    "quizzes": { "schema": "Quiz", "description": "Collection of quizzes" },
+    "worksheets": { "schema": "Worksheet", "description": "Collection of worksheets" },
+    "admins": { "schema": "Admin", "description": "Whitelisted admin users" }
+  }
+}
