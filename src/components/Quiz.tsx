@@ -45,14 +45,14 @@ export default function Quiz({ questions, onComplete }: QuizProps) {
 
   if (showResult) {
     return (
-      <div className="text-center p-8 bg-white rounded-3xl border border-gray-100 shadow-xl max-w-md mx-auto">
-        <h3 className="text-2xl font-bold mb-4">Quiz Completed!</h3>
-        <div className="text-5xl font-black text-indigo-600 mb-6">
+      <div className="text-center p-8 bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-xl max-w-md mx-auto">
+        <h3 className="text-2xl font-bold dark:text-white mb-4">Quiz Completed!</h3>
+        <div className="text-5xl font-black text-indigo-600 dark:text-indigo-400 mb-6">
           {score} / {questions.length}
         </div>
         <button
           onClick={restart}
-          className="flex items-center gap-2 mx-auto bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg"
+          className="flex items-center gap-2 mx-auto bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100/10"
         >
           <RotateCcw size={20} />
           Try Again
@@ -67,20 +67,20 @@ export default function Quiz({ questions, onComplete }: QuizProps) {
     <div className="max-w-2xl mx-auto">
       <div className="mb-8 flex justify-between items-end">
         <div>
-          <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Question {currentQuestion + 1} of {questions.length}</span>
-          <h2 className="text-xl font-bold text-gray-900 mt-1">{q.text}</h2>
+          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Question {currentQuestion + 1} of {questions.length}</span>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-100 mt-1">{q.text}</h2>
         </div>
       </div>
 
       <div className="grid gap-3 mb-8">
         {q.options.map((option, index) => {
-          let styles = "bg-white border-gray-200 text-gray-700 hover:border-indigo-600";
+          let styles = "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-gray-300 hover:border-indigo-600 dark:hover:border-indigo-400";
           if (isAnswered) {
-            if (index === q.correctAnswer) styles = "bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2";
-            else if (selectedOption === index) styles = "bg-rose-50 border-rose-500 text-rose-700 ring-2 ring-rose-500 ring-offset-2";
-            else styles = "bg-white border-gray-100 text-gray-300 opacity-50";
+            if (index === q.correctAnswer) styles = "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 text-emerald-700 dark:text-emerald-400 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-zinc-950";
+            else if (selectedOption === index) styles = "bg-rose-50 dark:bg-rose-950/20 border-rose-500 text-rose-700 dark:text-rose-400 ring-2 ring-rose-500 ring-offset-2 dark:ring-offset-zinc-950";
+            else styles = "bg-white dark:bg-zinc-900/50 border-gray-100 dark:border-zinc-800/80 text-gray-300 dark:text-zinc-650 opacity-40";
           } else if (selectedOption === index) {
-            styles = "bg-indigo-50 border-indigo-600 text-indigo-700";
+            styles = "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-600 dark:border-indigo-500 text-indigo-700 dark:text-indigo-400";
           }
 
           return (
@@ -107,7 +107,7 @@ export default function Quiz({ questions, onComplete }: QuizProps) {
           >
             <button
               onClick={handleNext}
-              className="group flex items-center gap-1 bg-gray-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition-all shadow-lg"
+              className="group flex items-center gap-1 bg-gray-900 dark:bg-zinc-800 text-white dark:text-gray-100 px-6 py-3 rounded-xl font-bold hover:bg-black dark:hover:bg-zinc-700 transition-all shadow-lg"
             >
               {currentQuestion === questions.length - 1 ? 'Finish' : 'Next Question'}
               <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />

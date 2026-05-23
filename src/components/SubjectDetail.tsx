@@ -1,6 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { FileText, ClipboardList, Youtube, ChevronLeft, LayoutGrid, BrainCircuit, Sparkles, Loader2, BookOpenText, Eye, Download, Info } from 'lucide-react';
+import { 
+  FileText, 
+  ClipboardList, 
+  Youtube, 
+  ChevronLeft, 
+  LayoutGrid, 
+  BrainCircuit, 
+  Sparkles, 
+  Loader2, 
+  BookOpenText, 
+  Eye, 
+  Download, 
+  Info, 
+  FileSpreadsheet, 
+  GraduationCap
+} from 'lucide-react';
 import { Subject, Resource, Question, Worksheet } from '../data/mockData';
 import Quiz from './Quiz';
 import InteractiveWorksheet from './InteractiveWorksheet';
@@ -13,14 +28,20 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 interface SubjectDetailProps {
   subject: Subject;
   subjects: Subject[];
+  initialClass?: string | null;
   onBack: () => void;
   onSelectSubject: (id: string) => void;
   onViewPdf: (resource: Resource) => void;
 }
 
-export default function SubjectDetail({ subject, subjects, onBack, onSelectSubject, onViewPdf }: SubjectDetailProps) {
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'resources' | 'worksheets' | 'quizzes'>('resources');
+export default function SubjectDetail({ subject, subjects, initialClass = null, onBack, onSelectSubject, onViewPdf }: SubjectDetailProps) {
+  const [selectedClass, setSelectedClass] = useState<string | null>(initialClass);
+
+  useEffect(() => {
+    setSelectedClass(initialClass);
+  }, [initialClass]);
+
+  const [activeTab, setActiveTab] = useState<'notes' | 'worksheet' | 'model_paper' | 'quizzes' | 'interactive_learning'>('notes');
   const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [activeWorksheetId, setActiveWorksheetId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -36,11 +57,15 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
     const qr = query(collection(db, 'resources'), where('subjectId', '==', subject.id));
     const unsubscribeR = onSnapshot(qr, (snap) => {
       setDbResources(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) as Resource[]);
+    }, (err) => {
+      console.warn("Firestore onSnapshot error:", err);
     });
 
     const qq = query(collection(db, 'quizzes'), where('subjectId', '==', subject.id));
     const unsubscribeQ = onSnapshot(qq, (snap) => {
       setDbQuizzes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+    }, (err) => {
+      console.warn("Firestore onSnapshot error:", err);
     });
 
     return () => {
@@ -51,14 +76,15 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
 
   const mockClassData = selectedClass ? subject.classes?.[selectedClass] : null;
   
+  // Combine databases and mock resources together safely
   const currentResources = [
     ...(mockClassData?.resources || []),
-    ...dbResources.filter(r => r.classId === selectedClass)
+    ...dbResources.filter(r => r && r.classId === selectedClass)
   ] as Resource[];
 
   const currentQuizzes = [
     ...(mockClassData?.quizzes || []),
-    ...dbQuizzes.filter(q => q.classId === selectedClass)
+    ...dbQuizzes.filter(q => q && q.classId === selectedClass)
   ] as any[];
 
   const activeQuiz = generatedQuiz || currentQuizzes.find(q => q.id === activeQuizId);
@@ -103,38 +129,72 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
     doc.save(`${ws.title.replace(/\s+/g, '_')}.pdf`);
   };
 
+  // Group resources helper for Notes and Model Papers
+  const renderGroupedResources = (resourcesToRender: Resource[], emptyMessage: string) => {
+    const grouped = resourcesToRender.reduce((acc, res) => {
+      const chapter = res.chapter || 'General Resources';
+      if (!acc[chapter]) acc[chapter] = [];
+      acc[chapter].push(res);
+      return acc;
+    }, {} as { [key: string]: Resource[] });
+
+    const chapters = Object.entries(grouped || {});
+    
+    if (chapters.length === 0) {
+      return (
+        <div className="py-25 text-center text-gray-400 font-medium bg-white rounded-3xl border border-dashed border-gray-200">
+          {emptyMessage}
+        </div>
+      );
+    }
+
+    return chapters.map(([chapter, items]) => (
+      <div key={chapter} className="space-y-6 mb-10">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-1.5 bg-indigo-600 rounded-full"></div>
+          <h3 className="text-xl font-black text-gray-900 tracking-tight">{chapter}</h3>
+        </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.map((resource) => (
+            <ResourceCard 
+              key={resource.id} 
+              resource={resource} 
+              onViewPdf={() => onViewPdf(resource)}
+            />
+          ))}
+        </div>
+      </div>
+    ));
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0B0B0C] pb-20">
       <div className={`${subject.color} text-white pt-4 pb-8 px-6 relative overflow-hidden`}>
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-24 -mb-24"></div>
         
-        <div className="max-w-6xl mx-auto relative">
-          <button 
-            onClick={onBack}
-            className="flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-2 group"
-          >
-            <ChevronLeft size={10} className="transition-transform group-hover:-translate-x-1" />
-            Back to Dashboard
-          </button>
-          <h1 className="text-3xl font-black">
-            {subject.name} {selectedClass && <span className="text-white/60 text-xl font-bold ml-2">Class {selectedClass}</span>}
-          </h1>
-          <p className="text-white/80 mt-1 text-sm">Master your skills with our curated materials.</p>
-          
-          <div className="flex items-center gap-3 mt-4 overflow-x-auto pb-2 scrollbar-hide">
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/40 whitespace-nowrap">Switch:</span>
-            {subjects.filter(s => s.id !== subject.id).map(s => (
-              <button
-                key={s.id}
-                onClick={() => { onSelectSubject(s.id); setSelectedClass(null); }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl transition-all whitespace-nowrap text-xs font-bold border border-white/5"
-              >
-                <div className={`w-2 h-2 rounded-full ${s.color}`}></div>
-                {s.name}
-              </button>
-            ))}
+        <div className="max-w-6xl mx-auto relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-2 group text-sm font-bold"
+            >
+              <ChevronLeft size={16} className="transition-transform group-hover:-translate-x-1" />
+              Back to Dashboard
+            </button>
+            <h1 className="text-3xl sm:text-4xl font-black">
+              {subject.name} {selectedClass && <span className="text-white/60 text-xl font-bold ml-2">Class {selectedClass}</span>}
+            </h1>
+            <p className="text-white/80 mt-1 text-sm">Master your skills with our curated materials.</p>
           </div>
+          {selectedClass && (
+            <button 
+              onClick={() => setSelectedClass(null)}
+              className="text-xs font-black uppercase tracking-widest text-indigo-600 bg-white hover:bg-gray-50 transition-colors px-6 py-3 rounded-2xl shadow-sm self-start md:self-auto flex items-center gap-2"
+            >
+              <ChevronLeft size={14} /> Change Class
+            </button>
+          )}
         </div>
       </div>
 
@@ -149,127 +209,126 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
                     whileHover={{ y: -5, scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setSelectedClass(cls)}
-                    className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl flex flex-col items-center justify-center gap-4 transition-all hover:border-indigo-600 group"
+                    className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] border border-gray-100 dark:border-zinc-800 shadow-xl dark:shadow-[0_0_30px_rgba(139,92,246,0.05)] flex flex-col items-center justify-center gap-4 transition-all hover:border-indigo-600 dark:hover:border-indigo-500 group cursor-pointer"
                   >
-                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest group-hover:text-indigo-600">Grade</div>
-                    <div className="text-4xl font-black text-gray-900 group-hover:text-indigo-600">{cls}</div>
+                    <div className="text-xs font-black text-gray-400 dark:text-gray-550 uppercase tracking-widest group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Grade</div>
+                    <div className="text-4xl font-black text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{cls}</div>
                   </motion.button>
                 ));
               })()}
           </div>
         ) : (
           <>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2 flex gap-1 w-fit overflow-x-auto max-w-full">
-                <button
-                  onClick={() => { setActiveTab('resources'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeTab === 'resources' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                  <LayoutGrid size={18} />
-                  Resources
-                </button>
-                <button
-                  onClick={() => { setActiveTab('worksheets'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeTab === 'worksheets' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                  <BookOpenText size={18} />
-                  Worksheets
-                </button>
-                <button
-                  onClick={() => { setActiveTab('quizzes'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeTab === 'quizzes' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                  <BrainCircuit size={18} />
-                  Quizzes
-                </button>
-              </div>
-
-              <button 
-                onClick={() => setSelectedClass(null)}
-                className="text-sm font-bold text-gray-500 hover:text-indigo-600 flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm transition-all"
+            <div className="bg-white dark:bg-[#121214] rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800/80 p-2 flex gap-1 w-full overflow-x-auto mb-8 whitespace-nowrap scrollbar-none">
+              <button
+                onClick={() => { setActiveTab('notes'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'notes' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800/40'}`}
               >
-                <ChevronLeft size={16} /> Switch Class
+                <BookOpenText size={16} />
+                Notes
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('worksheet'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'worksheet' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800/40'}`}
+              >
+                <ClipboardList size={16} />
+                Worksheets
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('model_paper'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'model_paper' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800/40'}`}
+              >
+                <GraduationCap size={16} />
+                Model Paper
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('quizzes'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'quizzes' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800/40'}`}
+              >
+                <BrainCircuit size={16} />
+                Quizzes
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('interactive_learning'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'interactive_learning' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800/40'}`}
+              >
+                <Youtube size={16} />
+                Interactive Learning
               </button>
             </div>
 
-            {activeTab === 'resources' ? (
-              <div className="space-y-12">
-                {(() => {
-                  const grouped = currentResources.reduce((acc, res) => {
-                    const chapter = res.chapter || 'General Resources';
-                    if (!acc[chapter]) acc[chapter] = [];
-                    acc[chapter].push(res);
-                    return acc;
-                  }, {} as { [key: string]: Resource[] });
-
-                  const chapters = Object.entries(grouped || {});
-                  
-                  if (chapters.length === 0) {
-                    return (
-                      <div className="py-20 text-center text-gray-400 font-medium bg-white rounded-3xl border border-dashed border-gray-200">
-                        No resources available for Class {selectedClass} yet.
-                      </div>
-                    );
-                  }
-
-                  return chapters.map(([chapter, items]) => (
-                    <div key={chapter} className="space-y-6">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-1.5 bg-indigo-600 rounded-full"></div>
-                        <h3 className="text-xl font-black text-gray-900 tracking-tight">{chapter}</h3>
-                      </div>
-                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {items.map((resource) => (
-                          <ResourceCard 
-                            key={resource.id} 
-                            resource={resource} 
-                            onViewPdf={() => onViewPdf(resource)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ));
-                })()}
+            {/* TAB CONTENT: Notes */}
+            {activeTab === 'notes' && (
+              <div className="space-y-6">
+                {renderGroupedResources(
+                  currentResources.filter(r => !r.category || r.category === 'notes'),
+                  `No notes available for Class ${selectedClass} yet.`
+                )}
               </div>
-            ) : activeTab === 'worksheets' ? (
+            )}
+
+            {/* TAB CONTENT: Worksheets */}
+            {activeTab === 'worksheet' && (
               <div>
                 {!activeWorksheetId ? (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {mockClassData?.worksheets?.map((ws) => (
-                      <div key={ws.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-                        <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 w-fit mb-4 group-hover:scale-110 transition-transform">
-                          <BookOpenText size={24} />
+                  <div className="space-y-12">
+                    {/* Subsection: Interactive Worksheets */}
+                    {mockClassData?.worksheets && mockClassData.worksheets.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                          <Sparkles size={20} className="text-indigo-600 dark:text-indigo-400" />
+                          Interactive Worksheets
+                        </h3>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {mockClassData.worksheets.map((ws) => (
+                            <div key={ws.id} className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group">
+                              <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 w-fit mb-4 group-hover:scale-110 transition-transform">
+                                <ClipboardList size={24} />
+                              </div>
+                              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{ws.title}</h3>
+                              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">{ws.items.length} Interactive Problems</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setActiveWorksheetId(ws.id)}
+                                  className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100/10 text-center cursor-pointer"
+                                >
+                                  Start Interactive
+                                </button>
+                                <button
+                                  onClick={() => downloadWorksheetAsPDF(ws)}
+                                  className="p-3 bg-gray-50 dark:bg-zinc-950 hover:bg-gray-100 dark:hover:bg-zinc-900 text-gray-500 dark:text-gray-400 rounded-xl transition-colors border border-gray-100 dark:border-zinc-800 group/dl cursor-pointer"
+                                  title="Download PDF"
+                                >
+                                  <Download size={20} className="group-hover/dl:scale-110 transition-transform" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{ws.title}</h3>
-                        <p className="text-gray-500 text-sm mb-6">{ws.items.length} Interactive Tasks</p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setActiveWorksheetId(ws.id)}
-                            className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
-                          >
-                            Open
-                          </button>
-                          <button
-                            onClick={() => downloadWorksheetAsPDF(ws)}
-                            className="p-3 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-xl transition-colors border border-gray-100 group/dl"
-                            title="Download PDF"
-                          >
-                            <Download size={20} className="group-hover/dl:scale-110 transition-transform" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {(!mockClassData?.worksheets || mockClassData.worksheets.length === 0) && (
-                      <div className="col-span-full py-20 text-center text-gray-400 font-medium bg-white rounded-3xl border border-dashed border-gray-200">
-                        No interactive worksheets available for Class {selectedClass} yet.
                       </div>
                     )}
+
+                    {/* Subsection: Document Practice Worksheets */}
+                    <div>
+                      <h3 className="text-xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                        <FileText size={20} className="text-indigo-600 dark:text-indigo-400" />
+                        Practice Worksheets (PDF/Links)
+                      </h3>
+                      {renderGroupedResources(
+                        currentResources.filter(r => r.category === 'worksheet'),
+                        `No practice worksheets available for Class ${selectedClass} yet.`
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden relative">
                     <button 
                       onClick={() => setActiveWorksheetId(null)}
-                      className="mb-8 text-sm font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                      className="mb-8 text-sm font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1 cursor-pointer"
                     >
                       <ChevronLeft size={16} /> Close Worksheet
                     </button>
@@ -280,7 +339,20 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+
+            {/* TAB CONTENT: Model Papers */}
+            {activeTab === 'model_paper' && (
+              <div className="space-y-6">
+                {renderGroupedResources(
+                  currentResources.filter(r => r.category === 'model_paper'),
+                  `No model test papers available for Class ${selectedClass} yet.`
+                )}
+              </div>
+            )}
+
+            {/* TAB CONTENT: Quizzes */}
+            {activeTab === 'quizzes' && (
               <div>
                 {!activeQuizId ? (
                   <div className="space-y-12">
@@ -291,7 +363,7 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
                       <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center justify-between">
                         <div className="max-w-md">
                           <h3 className="text-2xl font-bold mb-2">AI Quiz Generator</h3>
-                          <p className="text-indigo-100 mb-6 text-sm">Generate a custom quiz for Class {selectedClass} based on your interest using Gemini AI.</p>
+                          <p className="text-indigo-100 mb-6 text-sm">Generate a customized quiz for Class {selectedClass} based on your syllabus using Gemini AI.</p>
                           
                           <div className="flex flex-wrap gap-2 mb-6">
                             {['Beginner', 'Intermediate', 'Advanced'].map((lvl) => (
@@ -308,7 +380,7 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
                           <button
                             onClick={handleGenerateAIQuiz}
                             disabled={isGenerating}
-                            className="flex items-center gap-2 bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group"
+                            className="flex items-center gap-2 bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
                           >
                             {isGenerating ? (
                               <Loader2 size={20} className="animate-spin" />
@@ -333,7 +405,7 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
                             <p className="text-gray-500 text-sm mb-6">{quiz.questions.length} Questions</p>
                             <button
                               onClick={() => setActiveQuizId(quiz.id)}
-                              className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
+                              className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 cursor-pointer"
                             >
                               Start Quiz
                             </button>
@@ -352,7 +424,7 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
                     <div className="flex justify-between items-center mb-8">
                       <button 
                         onClick={() => { setActiveQuizId(null); setGeneratedQuiz(null); }}
-                        className="text-sm font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                        className="text-sm font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1 cursor-pointer"
                       >
                         <ChevronLeft size={16} /> Exit Quiz
                       </button>
@@ -373,6 +445,16 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
                 )}
               </div>
             )}
+
+            {/* TAB CONTENT: Interactive Learning */}
+            {activeTab === 'interactive_learning' && (
+              <div className="space-y-6">
+                {renderGroupedResources(
+                  currentResources.filter(r => r.category === 'interactive_learning'),
+                  `No interactive learning resources available for Class ${selectedClass} yet.`
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -380,23 +462,23 @@ export default function SubjectDetail({ subject, subjects, onBack, onSelectSubje
   );
 }
 
-const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void }> = ({ resource, onViewPdf }) => {
+export const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void }> = ({ resource, onViewPdf }) => {
   const Icon = resource.type === 'pdf' ? FileText : resource.type === 'worksheet' ? ClipboardList : Youtube;
   const iconColor = resource.type === 'pdf' ? 'text-red-500' : resource.type === 'worksheet' ? 'text-blue-500' : 'text-rose-500';
 
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm group"
+      className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm group"
     >
-      <div className={`p-3 rounded-xl bg-gray-50 w-fit mb-4 group-hover:scale-110 transition-transform ${iconColor}`}>
+      <div className={`p-3 rounded-xl bg-gray-50 dark:bg-zinc-950 w-fit mb-4 group-hover:scale-110 transition-transform ${iconColor}`}>
         <Icon size={24} />
       </div>
-      <h4 className="text-lg font-bold text-gray-900 mb-1">{resource.title}</h4>
-      <p className="text-gray-500 text-sm mb-6 leading-relaxed line-clamp-2">{resource.description}</p>
+      <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{resource.title}</h4>
+      <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed line-clamp-2">{resource.description || 'Access and work through high quality content.'}</p>
       
       {resource.type === 'youtube' ? (
-        <div className="aspect-video w-full rounded-2xl overflow-hidden mb-4 border border-gray-100">
+        <div className="aspect-video w-full rounded-2xl overflow-hidden mb-4 border border-gray-100 dark:border-zinc-800">
            <iframe
             className="w-full h-full"
             src={resource.url}
@@ -409,15 +491,15 @@ const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void }> = (
       ) : resource.type === 'pdf' ? (
         <button
           onClick={onViewPdf}
-          className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl font-bold transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl font-bold transition-colors cursor-pointer"
         >
           <Eye size={18} />
-          View PDF Note
+          View Note File
         </button>
       ) : (
         <a
           href={resource.url}
-          className="flex items-center justify-center gap-2 w-full py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-3 bg-gray-50 dark:bg-zinc-950 hover:bg-gray-100 dark:hover:bg-zinc-900 text-gray-700 dark:text-gray-300 rounded-xl font-bold transition-colors text-center cursor-pointer"
         >
           Download Worksheet
         </a>

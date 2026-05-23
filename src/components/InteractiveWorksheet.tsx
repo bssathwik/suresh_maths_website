@@ -45,12 +45,12 @@ export default function InteractiveWorksheet({ items, onComplete }: InteractiveW
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
             key={item.id}
-            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
+            className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm"
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex-1">
-                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">Problem {index + 1}</span>
-                <label className="text-lg font-bold text-gray-900">{item.question}</label>
+                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block mb-1">Problem {index + 1}</span>
+                <label className="text-lg font-bold text-gray-900 dark:text-white">{item.question}</label>
               </div>
               <div className="flex items-center gap-3">
                 <input
@@ -62,9 +62,9 @@ export default function InteractiveWorksheet({ items, onComplete }: InteractiveW
                   className={`w-full md:w-48 px-4 py-3 rounded-xl border-2 font-bold focus:outline-none transition-all ${
                     submitted 
                       ? results[item.id] 
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
-                        : 'border-rose-500 bg-rose-50 text-rose-700'
-                      : 'border-gray-100 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10'
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' 
+                        : 'border-rose-500 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400'
+                      : 'border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-gray-800 dark:text-gray-100 placeholder-zinc-500 focus:border-indigo-600 dark:focus:border-indigo-400 focus:ring-4 focus:ring-indigo-600/10'
                   }`}
                 />
                 {submitted && (
@@ -76,23 +76,23 @@ export default function InteractiveWorksheet({ items, onComplete }: InteractiveW
             </div>
             {submitted && !results[item.id] && (
               <p className="mt-3 text-sm font-bold text-gray-400">
-                Correct answer: <span className="text-indigo-600">{item.correctAnswer}</span>
+                Correct answer: <span className="text-indigo-600 dark:text-indigo-400">{item.correctAnswer}</span>
               </p>
             )}
           </motion.div>
         ))}
       </div>
 
-      <div className="mt-12 sticky bottom-0 p-6 bg-white/80 backdrop-blur-md rounded-3xl border border-gray-100 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="mt-12 sticky bottom-0 p-6 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
         {!submitted ? (
           <>
             <div>
-              <p className="text-sm font-bold text-gray-500">Ready to check your answers?</p>
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black uppercase tracking-widest">Complete all items for best results</p>
+              <p className="text-sm font-bold text-gray-500 dark:text-gray-400">Ready to check your answers?</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black">Complete all items for best results</p>
             </div>
             <button
               onClick={handleSubmit}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+              className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100/15"
             >
               <Send size={20} />
               Submit Worksheet
@@ -101,12 +101,12 @@ export default function InteractiveWorksheet({ items, onComplete }: InteractiveW
         ) : (
           <>
             <div>
-              <p className="text-sm font-bold text-gray-500">Worksheet Results</p>
-              <p className="text-2xl font-black text-gray-900">Score: {score} / {items.length}</p>
+              <p className="text-sm font-bold text-gray-500 dark:text-gray-400">Worksheet Results</p>
+              <p className="text-2xl font-black text-gray-900 dark:text-white">Score: {score} / {items.length}</p>
             </div>
             <button
               onClick={handleReset}
-              className="flex items-center gap-2 bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-all shadow-lg"
+              className="flex items-center gap-2 bg-gray-900 dark:bg-zinc-850 text-white dark:text-gray-105 px-8 py-3 rounded-xl font-bold hover:bg-black dark:hover:bg-zinc-700 transition-all shadow-lg"
             >
               <RefreshCcw size={20} />
               Restart Worksheet

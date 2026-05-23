@@ -1,12 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
   body {
-    @apply antialiased text-gray-900 bg-[#FDFDFF];
+    @apply antialiased text-gray-900 bg-[#FDFDFF] dark:bg-[#0B0B0C] dark:text-zinc-100 transition-colors duration-300;
   }
 }

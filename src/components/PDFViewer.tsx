@@ -69,7 +69,7 @@ export default function PDFViewer({ url, title, onClose }: PDFViewerProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col h-screen w-full bg-white select-none"
+      className="flex flex-col h-screen w-full bg-white dark:bg-zinc-950 select-none"
     >
       <style>{`
         @media print {
@@ -78,28 +78,28 @@ export default function PDFViewer({ url, title, onClose }: PDFViewerProps) {
       `}</style>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-white">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950">
         <div className="flex items-center gap-3">
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors flex items-center gap-1 group"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-xl text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-1 group"
           >
             <ChevronLeft size={20} className="transition-transform group-hover:-translate-x-0.5" />
             <span className="text-sm font-bold">Back</span>
           </button>
-          <div className="h-6 w-px bg-gray-200 mx-1"></div>
-          <h3 className="text-lg font-bold text-gray-900 truncate max-w-[200px] md:max-w-md">{title}</h3>
+          <div className="h-6 w-px bg-gray-200 dark:bg-zinc-800 mx-1"></div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate max-w-[200px] md:max-w-md">{title}</h3>
         </div>
         <button 
           onClick={onClose}
-          className="p-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-gray-900 transition-colors"
+          className="p-2 bg-gray-50 dark:bg-zinc-900 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-xl text-gray-400 dark:text-zinc-550 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <X size={20} />
         </button>
       </div>
 
       {/* Content */}
-      <div className="flex-1 bg-gray-100 relative overflow-hidden">
+      <div className="flex-1 bg-gray-100 dark:bg-[#0B0B0C] relative overflow-hidden">
           <AnimatePresence>
             {!isTabFocused && (
               <motion.div 
@@ -122,14 +122,14 @@ export default function PDFViewer({ url, title, onClose }: PDFViewerProps) {
           {isPlaceholder ? (
             <div className="absolute inset-0 flex items-center justify-center p-12 text-center">
               <div className="max-w-md">
-                <div className="bg-indigo-100 text-indigo-600 p-6 rounded-full w-fit mx-auto mb-6">
+                <div className="bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 p-6 rounded-full w-fit mx-auto mb-6">
                   <X size={48} />
                 </div>
-                <h4 className="text-2xl font-bold mb-2">No PDF File Linked</h4>
-                <p className="text-gray-500">This is a mock educational app. In a real application, this viewer would display the actual PDF document from the provided URL.</p>
+                <h4 className="text-2xl font-bold mb-2 dark:text-white">No PDF File Linked</h4>
+                <p className="text-gray-500 dark:text-gray-400">This is a mock educational app. In a real application, this viewer would display the actual PDF document from the provided URL.</p>
                 <button 
                   onClick={onClose}
-                  className="mt-8 bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-all shadow-lg"
+                  className="mt-8 bg-gray-900 dark:bg-zinc-800 text-white dark:text-gray-100 px-8 py-3 rounded-xl font-bold hover:bg-black dark:hover:bg-zinc-700 transition-all shadow-lg"
                 >
                   Go Back
                 </button>
