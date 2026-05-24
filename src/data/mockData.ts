@@ -55,7 +55,6 @@ export const subjects: Subject[] = [
       'VI': {
         resources: [
           { id: 'm-6-1-1', title: 'Chapter 1: 1. PATTERNS IN MATHEMATICS - PDF Notes', chapter: 'Chapter 1: 1. PATTERNS IN MATHEMATICS', type: 'pdf', url: 'https://drive.google.com/file/d/1vYYC6JHmfW9_NIrgxYq4MFgdBHEyEizc/view?usp=drive_link', description: 'Comprehensive notes on large numbers and estimation.', category: 'notes' },
-          { id: 'm-6-1-2', title: 'Chapter 1: 1. PATTERNS IN MATHEMATICS - Video', chapter: 'Chapter 1: 1. PATTERNS IN MATHEMATICS', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', description: 'Video session explaining patterns and values.', category: 'interactive_learning' },
           { id: 'm-6-2-1', title: 'Chapter 2: Whole Numbers - Introduction', chapter: 'Chapter 2: Whole Numbers', type: 'pdf', url: '#', description: 'Detailed notes on whole numbers and properties.', category: 'notes' },
           { id: 'm-6-ws-pdf', title: 'Chapter 1: Patterns in Mathematics - Worksheet', chapter: 'Chapter 1: 1. PATTERNS IN MATHEMATICS', type: 'pdf', url: '#', description: 'Practice pdf workload on patterns in mathematics.', category: 'worksheet' },
           { id: 'm-6-mp-1', title: 'Class VI Mathematics - Term End Model Paper', chapter: 'Model Question Papers', type: 'pdf', url: '#', description: 'Official style mock examination paper.', category: 'model_paper' }
@@ -76,8 +75,7 @@ export const subjects: Subject[] = [
           { id: 'm-7-1-1', title: 'Chapter 1: Integers - Concepts', chapter: 'Chapter 1: Integers', type: 'pdf', url: '#', description: 'Rules for addition and subtraction of integers.', category: 'notes' },
           { id: 'm-7-2-1', title: 'Chapter 2: Fractions & Decimals', chapter: 'Chapter 2: Fractions & Decimals', type: 'pdf', url: '#', description: 'Operations on fractions and decimals explained.', category: 'notes' },
           { id: 'm-7-ws-pdf', title: 'Chapter 1: Integers Practice Worksheet', chapter: 'Chapter 1: Integers', type: 'pdf', url: '#', description: 'Printable practice sums for math integers.', category: 'worksheet' },
-          { id: 'm-7-mp-1', title: 'Class VII Summative Assessment Model Paper', chapter: 'Model Question Papers', type: 'pdf', url: '#', description: 'Mid-term model question paper with solutions.', category: 'model_paper' },
-          { id: 'm-7-vid-1', title: 'Fractions Visualized Video Lesson', chapter: 'Chapter 2: Fractions & Decimals', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', description: 'Visualizing basic arithmetic fraction division.', category: 'interactive_learning' }
+          { id: 'm-7-mp-1', title: 'Class VII Summative Assessment Model Paper', chapter: 'Model Question Papers', type: 'pdf', url: '#', description: 'Mid-term model question paper with solutions.', category: 'model_paper' }
         ],
         quizzes: [
           {
@@ -113,7 +111,6 @@ export const subjects: Subject[] = [
         resources: [
           { id: 'm-10-1-1', title: 'Chapter 1: Real Numbers', chapter: 'Chapter 1: Real Numbers', type: 'pdf', url: '#', description: 'Euclid\'s Division Lemma and fundamental theorem of arithmetic.', category: 'notes' },
           { id: 'm-10-8-1', title: 'Chapter 8: Trigonometry - Basics', chapter: 'Chapter 8: Trigonometry', type: 'pdf', url: '#', description: 'Trigonometric ratios and identities.', category: 'notes' },
-          { id: 'm-10-8-2', title: 'Trigonometry Video Tutorial', chapter: 'Chapter 8: Trigonometry', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', description: 'Introduction to Sin, Cos, and Tan.', category: 'interactive_learning' },
           { id: 'm-10-ws', title: 'Trigorometry Practice Worksheet', chapter: 'Chapter 8: Trigonometry', type: 'pdf', url: '#', description: 'Important board patterns worksheet for trigonometric ratios.', category: 'worksheet' },
           { id: 'm-10-mp', title: 'Class X Secondary School Model Test Paper', chapter: 'Model Question Papers', type: 'pdf', url: '#', description: 'Full length mock assessment conforming to board frameworks.', category: 'model_paper' }
         ],

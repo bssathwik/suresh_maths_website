@@ -41,7 +41,7 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
     setSelectedClass(initialClass);
   }, [initialClass]);
 
-  const [activeTab, setActiveTab] = useState<'notes' | 'worksheet' | 'model_paper' | 'quizzes' | 'interactive_learning'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'worksheet' | 'model_paper' | 'quizzes'>('notes');
   const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [activeWorksheetId, setActiveWorksheetId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -76,11 +76,10 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
 
   const mockClassData = selectedClass ? subject.classes?.[selectedClass] : null;
   
-  // Combine databases and mock resources together safely
-  const currentResources = [
-    ...(mockClassData?.resources || []),
-    ...dbResources.filter(r => r && r.classId === selectedClass)
-  ] as Resource[];
+  // Show only database-uploaded files populated from Firestore
+  const currentResources = dbResources.filter(
+    r => r && r.classId === selectedClass
+  ) as Resource[];
 
   const currentQuizzes = [
     ...(mockClassData?.quizzes || []),
@@ -250,14 +249,6 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
               >
                 <BrainCircuit size={16} />
                 Quizzes
-              </button>
-
-              <button
-                onClick={() => { setActiveTab('interactive_learning'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
-                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'interactive_learning' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800/40'}`}
-              >
-                <Youtube size={16} />
-                Interactive Learning
               </button>
             </div>
 
@@ -446,15 +437,6 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
               </div>
             )}
 
-            {/* TAB CONTENT: Interactive Learning */}
-            {activeTab === 'interactive_learning' && (
-              <div className="space-y-6">
-                {renderGroupedResources(
-                  currentResources.filter(r => r.category === 'interactive_learning'),
-                  `No interactive learning resources available for Class ${selectedClass} yet.`
-                )}
-              </div>
-            )}
           </>
         )}
       </div>

@@ -68,19 +68,6 @@ const pillars = [
     footerLeft: 'Class VI - X',
     footerRight: 'AI Engine',
     textColor: 'group-hover:text-purple-600 dark:group-hover:text-purple-400',
-  },
-  {
-    id: 'videos',
-    title: 'Interactive Videos',
-    tag: 'Visual Classes',
-    desc: 'Engaging video concepts and visual explanations that break down tricky math formulas step-by-step with real-life models.',
-    icon: Youtube,
-    iconBg: 'bg-rose-50 text-rose-500 dark:bg-rose-950/30 dark:text-rose-400',
-    tagBg: 'text-rose-500 bg-[#FFF1F2]/55 dark:bg-rose-950/40 dark:text-rose-400',
-    borderHover: 'hover:border-rose-100 dark:hover:border-rose-900/40',
-    footerLeft: 'Class VI - X',
-    footerRight: 'Fluid Video',
-    textColor: 'group-hover:text-rose-500 dark:group-hover:text-rose-400',
   }
 ];
 
@@ -123,27 +110,16 @@ function AppContent() {
   const currentSubjects = mockSubjects;
   const selectedSubject = currentSubjects.find(s => s.id === selectedSubjectId);
 
-  // Compile resources list for instant multi-class search support
+  // Compile resources list for instant multi-class search support using only database-uploaded files
   const allResources = (() => {
     const list: (Resource & { classId: string })[] = [];
     
-    // 1. Mock Maths resources
-    mockSubjects.forEach(s => {
-      if (s.classes) {
-        Object.entries(s.classes).forEach(([classId, classData]) => {
-          if (classData.resources) {
-            classData.resources.forEach(r => {
-              list.push({ ...r, classId });
-            });
-          }
-        });
-      }
-    });
-
-    // 2. Database resources (avoiding duplicates)
+    // Only fetch from database resources containing valid document states
     dbResources.forEach(dbRes => {
-      if (!list.some(r => r.id === dbRes.id || r.url === dbRes.url)) {
-        list.push({ ...dbRes, classId: (dbRes as any).classId || 'X' });
+      if (dbRes && dbRes.url && dbRes.url.trim() !== '') {
+        if (!list.some(r => r.id === dbRes.id || r.url === dbRes.url)) {
+          list.push({ ...dbRes, classId: (dbRes as any).classId || 'X' });
+        }
       }
     });
 
@@ -221,7 +197,7 @@ function AppContent() {
                   </h1>
                   
                   <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 mb-8 max-w-lg mx-auto leading-relaxed font-medium">
-                    Access high-quality PDF notes, interactive worksheets, and engaging video tutorials all in one place.
+                    Access high-quality PDF notes and interactive worksheets all in one place.
                   </p>
                   
                   <div className="relative max-w-md mx-auto group">
@@ -269,6 +245,32 @@ function AppContent() {
                 </>
               ) : (
                 <>
+                  {/* Classes Grid */}
+                  <div className="mb-8 flex items-end justify-between">
+                    <div>
+                      <h2 className="text-3xl font-black text-gray-900 dark:text-white">Explore Classes</h2>
+                      <p className="text-gray-500 dark:text-gray-400 mt-1">Select your grade to start mastering Mathematics.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-6 mb-20">
+                    {['VI', 'VII', 'VIII', 'IX', 'X'].map((cls) => (
+                      <motion.button
+                        key={cls}
+                        whileHover={{ y: -5, scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setSelectedSubjectId('math');
+                          setSelectedClassId(cls);
+                        }}
+                        className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] border border-gray-100 dark:border-zinc-800 shadow-xl dark:shadow-[0_0_30px_rgba(139,92,246,0.05)] flex flex-col items-center justify-center gap-4 transition-all hover:border-indigo-600 dark:hover:border-indigo-500 group text-center cursor-pointer"
+                      >
+                        <div className="text-xs font-black text-gray-400 dark:text-gray-550 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 uppercase tracking-widest">Grade</div>
+                        <div className="text-4xl font-black text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{cls}</div>
+                      </motion.button>
+                    ))}
+                  </div>
+
                   {/* Learning Pillars / Resources Section */}
                   <div className="mb-20 overflow-hidden">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
@@ -278,7 +280,7 @@ function AppContent() {
                           Our Ecosystem
                         </div>
                         <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-zinc-100 tracking-tight">
-                          Five Pillars of Maths Excellence
+                          Four Pillars of Maths Excellence
                         </h2>
                         <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-2xl text-sm md:text-base leading-relaxed">
                           Discover how we make mathematics engaging, interactive, and easy to master with these tailored digital resource categories.
@@ -296,7 +298,7 @@ function AppContent() {
                         </button>
                         <button 
                           onClick={() => scrollSlider('right')}
-                          className="p-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl hover:border-indigo-600 dark:hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-400 dark:text-gray-500 hover:shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
+                          className="p-3 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl hover:border-indigo-600 dark:hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-400 dark:text-gray-550 hover:shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center shadow-sm"
                           aria-label="Scroll right"
                         >
                           <ChevronRight size={20} />
@@ -376,32 +378,6 @@ function AppContent() {
                         );
                       })}
                     </div>
-                  </div>
-
-                  {/* Classes Grid */}
-                  <div className="mb-8 flex items-end justify-between">
-                    <div>
-                      <h2 className="text-3xl font-black text-gray-900 dark:text-white">Explore Classes</h2>
-                      <p className="text-gray-500 dark:text-gray-400 mt-1">Select your grade to start mastering Mathematics.</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-                    {['VI', 'VII', 'VIII', 'IX', 'X'].map((cls) => (
-                      <motion.button
-                        key={cls}
-                        whileHover={{ y: -5, scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          setSelectedSubjectId('math');
-                          setSelectedClassId(cls);
-                        }}
-                        className="bg-white dark:bg-zinc-900 p-8 rounded-[2.5rem] border border-gray-100 dark:border-zinc-800 shadow-xl dark:shadow-[0_0_30px_rgba(139,92,246,0.05)] flex flex-col items-center justify-center gap-4 transition-all hover:border-indigo-600 dark:hover:border-indigo-500 group text-center cursor-pointer"
-                      >
-                        <div className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Grade</div>
-                        <div className="text-4xl font-black text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{cls}</div>
-                      </motion.button>
-                    ))}
                   </div>
                 </>
               )}
