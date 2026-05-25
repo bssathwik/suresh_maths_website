@@ -40,8 +40,8 @@ service cloud.firestore {
           && data.subjectId is string && data.subjectId.size() <= 64
           && data.classId is string && data.classId.size() <= 10
           && data.title is string && data.title.size() <= 200
-          && data.type in ['pdf', 'worksheet', 'youtube']
-          && data.url is string && data.url.size() <= 1000;
+          && data.type in ['pdf', 'worksheet', 'youtube', 'html']
+          && data.url is string && data.url.size() <= 1200000;
     }
 
     function isValidQuiz(data) {

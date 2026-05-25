@@ -22,7 +22,9 @@ import {
   X,
   LayoutGrid,
   FileBox,
-  Database
+  Database,
+  FileCode,
+  Globe
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,7 +35,7 @@ interface Resource {
   subjectId: string;
   classId: string;
   title: string;
-  type: 'pdf' | 'worksheet' | 'youtube';
+  type: 'pdf' | 'worksheet' | 'youtube' | 'html';
   url: string;
   description?: string;
   category: 'notes' | 'worksheet' | 'model_paper' | 'interactive_learning';
@@ -49,11 +51,11 @@ export default function AdminPortal() {
 
   // Form states
   const [resourceTitle, setResourceTitle] = useState('');
-  const [resourceType, setResourceType] = useState<'pdf' | 'worksheet' | 'youtube'>('pdf');
+  const [resourceType, setResourceType] = useState<'pdf' | 'worksheet' | 'youtube' | 'html'>('pdf');
   const [resourceURL, setResourceURL] = useState('');
   const [resourceClassId, setResourceClassId] = useState('X');
   const [resourceDesc, setResourceDesc] = useState('');
-  const [resourceCategory, setResourceCategory] = useState<'notes' | 'worksheet' | 'model_paper'>('notes');
+  const [resourceCategory, setResourceCategory] = useState<'notes' | 'worksheet' | 'model_paper' | 'interactive_learning'>('notes');
 
   useEffect(() => {
     const qResources = query(collection(db, 'resources'), orderBy('createdAt', 'desc'));
@@ -115,11 +117,34 @@ export default function AdminPortal() {
     setIsModalOpen(false);
   };
 
-  const handleAddNewForClass = (classId: string, category: 'notes' | 'worksheet' | 'model_paper') => {
+  const handleHtmlFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.html') && !file.name.endsWith('.htm')) {
+      alert("Please upload a valid HTML file (.html or .htm)");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawHtml = event.target?.result as string;
+      const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(rawHtml)}`;
+      if (dataUrl.length > 800000) {
+        alert("This HTML file is too large! Please keep it under 800KB for database storage.");
+        return;
+      }
+      setResourceURL(dataUrl);
+      alert(`Successfully loaded HTML file "${file.name}". Ready to be saved!`);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleAddNewForClass = (classId: string, category: 'notes' | 'worksheet' | 'model_paper' | 'interactive_learning') => {
     resetForms();
     setResourceClassId(classId === 'All' ? 'VI' : classId);
     setResourceCategory(category);
-    setResourceType(category === 'model_paper' ? 'pdf' : 'pdf');
+    setResourceType(category === 'interactive_learning' ? 'html' : 'pdf');
     setIsModalOpen(true);
   };
 
@@ -179,17 +204,25 @@ export default function AdminPortal() {
   const notesList = filteredResources.filter(r => r.category === 'notes');
   const worksheetsList = filteredResources.filter(r => r.category === 'worksheet');
   const modelPapersList = filteredResources.filter(r => r.category === 'model_paper');
+  const interactiveList = filteredResources.filter(r => r.category === 'interactive_learning' || r.type === 'html');
 
   const notesCount = notesList.length;
   const worksheetsCount = worksheetsList.length;
   const modelPapersCount = modelPapersList.length;
+  const interactiveCount = interactiveList.length;
 
   const renderResourceCard = (resource: Resource) => {
     return (
       <div key={resource.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800/80 rounded-2xl shadow-sm hover:shadow-md transition-all gap-4">
         <div className="flex items-start sm:items-center gap-4">
           <div className="bg-gray-50 dark:bg-zinc-800 p-3 rounded-xl text-indigo-600 dark:text-indigo-400 shrink-0">
-            {resource.type === 'pdf' ? <FileText size={20} /> : <FileBox size={20} />}
+            {resource.type === 'pdf' ? (
+              <FileText size={20} />
+            ) : resource.type === 'html' ? (
+              <FileCode size={20} />
+            ) : (
+              <FileBox size={20} />
+            )}
           </div>
           <div className="flex flex-col gap-1 min-w-0">
             <h4 className="text-sm sm:text-base font-bold text-gray-950 dark:text-zinc-50 truncate">{resource.title}</h4>
@@ -293,7 +326,7 @@ export default function AdminPortal() {
             </div>
             
             {/* Action metric bubbles */}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-100/70 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[70px] sm:min-w-[80px]">
                 <span className="text-2xl font-black text-amber-500 dark:text-amber-400">{notesCount}</span>
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center">Notes</span>
@@ -305,6 +338,10 @@ export default function AdminPortal() {
               <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-100/70 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[70px] sm:min-w-[80px]">
                 <span className="text-2xl font-black text-purple-600 dark:text-purple-400">{modelPapersCount}</span>
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center">Papers</span>
+              </div>
+              <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-100/70 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[70px] sm:min-w-[80px]">
+                <span className="text-2xl font-black text-rose-500 dark:text-rose-400">{interactiveCount}</span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center">Interactive</span>
               </div>
             </div>
           </div>
@@ -423,6 +460,43 @@ export default function AdminPortal() {
               )}
             </div>
 
+            {/* Field D: Interactive Learning & HTML Modules */}
+            <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50 dark:border-zinc-800/50">
+                <div className="flex items-center gap-3 max-w-[80%]">
+                  <div className="bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 shrink-0">
+                    <FileCode size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-extrabold text-gray-900 dark:text-zinc-50">Interactive Learning & HTML Modules</h3>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">HTML applications and web-based interactive resources</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleAddNewForClass(selectedClass, 'interactive_learning')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all cursor-pointer shrink-0"
+                >
+                  <Plus size={14} /> Add Modules
+                </button>
+              </div>
+
+              {interactiveList.length === 0 ? (
+                <div className="text-center py-10 border border-dashed border-gray-100 dark:border-zinc-800/80 rounded-2xl bg-gray-50/30 dark:bg-zinc-950/20">
+                  <p className="text-sm text-gray-400 dark:text-gray-500 font-medium mb-3">No interactive modules uploaded for this section.</p>
+                  <button
+                    onClick={() => handleAddNewForClass(selectedClass, 'interactive_learning')}
+                    className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all cursor-pointer"
+                  >
+                    Upload Initial Modules
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {interactiveList.map((res) => renderResourceCard(res))}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
 
@@ -443,7 +517,7 @@ export default function AdminPortal() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2.5rem] shadow-2xl p-8 overflow-hidden"
+              className="relative w-full max-w-lg bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl p-6 sm:p-8 max-h-[92vh] overflow-y-auto scrollbar-thin"
             >
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-black text-gray-900 dark:text-zinc-50">Resource Settings</h2>
@@ -473,13 +547,20 @@ export default function AdminPortal() {
                       onChange={(e) => {
                         const targetVal = e.target.value as any;
                         setResourceCategory(targetVal);
-                        setResourceType(targetVal === 'model_paper' ? 'pdf' : 'pdf');
+                        setResourceType(
+                          targetVal === 'model_paper' 
+                            ? 'pdf' 
+                            : targetVal === 'interactive_learning' 
+                            ? 'html' 
+                            : 'pdf'
+                        );
                       }}
                       className="w-full px-5 py-3.5 bg-gray-50 dark:bg-zinc-800 border border-transparent rounded-2xl focus:bg-white dark:focus:bg-zinc-900 focus:border-indigo-600 dark:focus:border-indigo-500 focus:outline-none transition-all font-bold text-indigo-600 dark:text-indigo-400 appearance-none cursor-pointer"
                     >
                       <option value="notes">Notes</option>
                       <option value="worksheet">Worksheet</option>
                       <option value="model_paper">Model Paper</option>
+                      <option value="interactive_learning">Interactive Learning</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -504,20 +585,44 @@ export default function AdminPortal() {
                     >
                       <option value="pdf">PDF Link</option>
                       <option value="worksheet">Worksheet Link</option>
+                      <option value="html">HTML File / Webpage</option>
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">URL</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">Resource URL / Code</label>
                     <input
                       required
                       type="text"
                       value={resourceURL}
                       onChange={(e) => setResourceURL(e.target.value)}
                       className="w-full px-5 py-3.5 bg-gray-50 dark:bg-zinc-800 border border-transparent rounded-2xl focus:bg-white dark:focus:bg-zinc-900 focus:border-indigo-600 dark:focus:border-indigo-500 focus:outline-none transition-all font-medium text-gray-900 dark:text-zinc-50"
-                      placeholder="Link or Embed URL"
+                      placeholder={resourceType === 'html' ? "Enter URL or auto-fills from upload" : "Link or Embed URL"}
                     />
                   </div>
                 </div>
+
+                {resourceType === 'html' && (
+                  <div className="space-y-2 p-5 bg-indigo-50/50 dark:bg-[#15151a] border border-dashed border-indigo-200 dark:border-indigo-900/60 rounded-3xl transition-all">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1">
+                      Upload Local HTML File
+                    </label>
+                    <p className="text-[11px] text-gray-400 dark:text-zinc-500 leading-relaxed mb-3">
+                      Choose a (.html) file. The content will be securely encoded and embedded into your student resources dashboard.
+                    </p>
+                    <input
+                      type="file"
+                      accept=".html,.htm"
+                      onChange={handleHtmlFileUpload}
+                      className="block w-full text-xs text-gray-500 dark:text-zinc-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 dark:file:bg-indigo-950 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 cursor-pointer"
+                    />
+                    {resourceURL && resourceURL.startsWith('data:') && (
+                      <div className="mt-3 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold bg-emerald-50/40 dark:bg-emerald-950/20 p-2.5 rounded-xl">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                        HTML Content Encoded! ({Math.round(resourceURL.length / 1024)} KB)
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">Description (Optional)</label>

@@ -14,7 +14,9 @@ import {
   Download, 
   Info, 
   FileSpreadsheet, 
-  GraduationCap
+  GraduationCap,
+  FileCode,
+  X
 } from 'lucide-react';
 import { Subject, Resource, Question, Worksheet } from '../data/mockData';
 import Quiz from './Quiz';
@@ -41,7 +43,7 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
     setSelectedClass(initialClass);
   }, [initialClass]);
 
-  const [activeTab, setActiveTab] = useState<'notes' | 'worksheet' | 'model_paper' | 'quizzes'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'worksheet' | 'model_paper' | 'quizzes' | 'interactive_learning'>('notes');
   const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [activeWorksheetId, setActiveWorksheetId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -50,6 +52,7 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
 
   const [dbResources, setDbResources] = useState<Resource[]>([]);
   const [dbQuizzes, setDbQuizzes] = useState<any[]>([]);
+  const [activeHtmlResource, setActiveHtmlResource] = useState<Resource | null>(null);
 
   useEffect(() => {
     if (!subject.id) return;
@@ -159,6 +162,7 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
               key={resource.id} 
               resource={resource} 
               onViewPdf={() => onViewPdf(resource)}
+              onViewHtml={() => setActiveHtmlResource(resource)}
             />
           ))}
         </div>
@@ -249,6 +253,14 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
               >
                 <BrainCircuit size={16} />
                 Quizzes
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('interactive_learning'); setActiveQuizId(null); setActiveWorksheetId(null); setGeneratedQuiz(null); }}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'interactive_learning' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800/40'}`}
+              >
+                <Sparkles size={16} className="text-amber-500 dark:text-amber-400" />
+                Interactive Learning
               </button>
             </div>
 
@@ -437,16 +449,68 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
               </div>
             )}
 
+            {/* TAB CONTENT: Interactive Learning */}
+            {activeTab === 'interactive_learning' && (
+              <div className="space-y-6">
+                {renderGroupedResources(
+                  currentResources.filter(r => r.category === 'interactive_learning' || r.type === 'html'),
+                  `No interactive learning resources available for Class ${selectedClass} yet.`
+                )}
+              </div>
+            )}
+
           </>
         )}
       </div>
+
+      {/* HTML Resource Viewer Modal */}
+      <AnimatePresence>
+        {activeHtmlResource && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveHtmlResource(null)}
+              className="absolute inset-0 bg-gray-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full h-[85vh] max-w-6xl bg-white dark:bg-[#121214] border border-gray-100 dark:border-zinc-800 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800 shrink-0">
+                <div>
+                  <h3 className="font-extrabold text-lg text-gray-950 dark:text-zinc-50">{activeHtmlResource.title}</h3>
+                  <p className="text-xs text-gray-400 dark:text-zinc-500">Interactive Student Resource</p>
+                </div>
+                <button 
+                  onClick={() => setActiveHtmlResource(null)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-350 rounded-xl transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 bg-gray-50 dark:bg-[#070708] relative">
+                <iframe
+                  className="w-full h-full border-0"
+                  src={activeHtmlResource.url}
+                  sandbox="allow-scripts allow-modals"
+                  title={activeHtmlResource.title}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-export const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void }> = ({ resource, onViewPdf }) => {
-  const Icon = resource.type === 'pdf' ? FileText : resource.type === 'worksheet' ? ClipboardList : Youtube;
-  const iconColor = resource.type === 'pdf' ? 'text-red-500' : resource.type === 'worksheet' ? 'text-blue-500' : 'text-rose-500';
+export const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void, onViewHtml?: () => void }> = ({ resource, onViewPdf, onViewHtml }) => {
+  const Icon = resource.type === 'pdf' ? FileText : resource.type === 'html' ? FileCode : resource.type === 'worksheet' ? ClipboardList : Youtube;
+  const iconColor = resource.type === 'pdf' ? 'text-red-500' : resource.type === 'html' ? 'text-indigo-505' : resource.type === 'worksheet' ? 'text-blue-500' : 'text-rose-500';
 
   return (
     <motion.div
@@ -477,6 +541,14 @@ export const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void
         >
           <Eye size={18} />
           View Note File
+        </button>
+      ) : resource.type === 'html' ? (
+        <button
+          onClick={onViewHtml}
+          className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white dark:text-indigo-100 rounded-xl font-bold transition-colors cursor-pointer shadow-lg shadow-indigo-100 dark:shadow-none"
+        >
+          <Eye size={18} />
+          View Interactive HTML
         </button>
       ) : (
         <a

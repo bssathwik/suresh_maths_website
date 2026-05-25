@@ -15,7 +15,7 @@
     },
     "Resource": {
       "title": "Resource",
-      "description": "Learning resource like PDF, YouTube video, or Worksheet link",
+      "description": "Learning resource like PDF, YouTube video, Worksheet link, or HTML file",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -23,9 +23,10 @@
         "classId": { "type": "string" },
         "title": { "type": "string" },
         "chapter": { "type": "string" },
-        "type": { "type": "string", "enum": ["pdf", "worksheet", "youtube"] },
+        "type": { "type": "string", "enum": ["pdf", "worksheet", "youtube", "html"] },
         "url": { "type": "string" },
         "description": { "type": "string" },
+        "category": { "type": "string", "enum": ["notes", "worksheet", "model_paper", "interactive_learning"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "subjectId", "classId", "title", "type", "url"]

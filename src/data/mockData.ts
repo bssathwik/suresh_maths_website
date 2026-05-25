@@ -2,7 +2,7 @@ export interface Resource {
   id: string;
   title: string;
   chapter?: string;
-  type: 'pdf' | 'worksheet' | 'youtube';
+  type: 'pdf' | 'worksheet' | 'youtube' | 'html';
   url: string;
   description?: string;
   category: 'notes' | 'worksheet' | 'model_paper' | 'interactive_learning';
