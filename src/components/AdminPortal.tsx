@@ -24,11 +24,15 @@ import {
   FileBox,
   Database,
   FileCode,
-  Globe
+  Globe,
+  Sparkles,
+  Loader2,
+  Brain
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { subjects as mockSubjects } from '../data/mockData';
+import { generateQuizWithParams } from '../services/geminiService';
 
 interface Resource {
   id: string;
@@ -43,6 +47,7 @@ interface Resource {
 
 export default function AdminPortal() {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   
@@ -57,16 +62,77 @@ export default function AdminPortal() {
   const [resourceDesc, setResourceDesc] = useState('');
   const [resourceCategory, setResourceCategory] = useState<'notes' | 'worksheet' | 'model_paper' | 'interactive_learning'>('notes');
 
+  // AI Quiz Generator states
+  const [quizTopic, setQuizTopic] = useState('');
+  const [quizType, setQuizType] = useState<'mcq' | 'true_false' | 'mix'>('mcq');
+  const [quizDifficulty, setQuizDifficulty] = useState<string>('Beginner');
+  const [quizQuestionsCount, setQuizQuestionsCount] = useState<number>(5);
+  const [quizClassId, setQuizClassId] = useState<string>('VIII');
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+
   useEffect(() => {
     const qResources = query(collection(db, 'resources'), orderBy('createdAt', 'desc'));
     const unsubscribeResources = onSnapshot(qResources, (snapshot) => {
       setResources(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) as Resource[]);
     });
 
+    const qQuizzes = query(collection(db, 'quizzes'), orderBy('createdAt', 'desc'));
+    const unsubscribeQuizzes = onSnapshot(qQuizzes, (snapshot) => {
+      setQuizzes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+    });
+
     return () => {
       unsubscribeResources();
+      unsubscribeQuizzes();
     };
   }, []);
+
+  const handleGenerateAndSaveQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quizTopic.trim()) {
+      alert("Please enter a topic.");
+      return;
+    }
+    setIsGeneratingQuiz(true);
+    try {
+      const generated = await generateQuizWithParams(
+        "Mathematics", 
+        quizTopic, 
+        quizType, 
+        quizDifficulty, 
+        quizQuestionsCount
+      );
+
+      const quizRef = doc(collection(db, 'quizzes'));
+      await setDoc(quizRef, {
+        id: quizRef.id,
+        subjectId: 'math',
+        classId: quizClassId,
+        title: generated.title,
+        questions: generated.questions,
+        createdAt: serverTimestamp()
+      });
+
+      alert(`Quiz "${generated.title}" generated and saved to Class ${quizClassId} successfully!`);
+      setQuizTopic('');
+    } catch (error: any) {
+      console.error("Quiz generation failed:", error);
+      alert(`Quiz generation failed: ${error.message}`);
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  const handleDeleteQuiz = async (id: string) => {
+    if (confirm("Are you sure you want to delete this quiz?")) {
+      try {
+        await deleteDoc(doc(db, 'quizzes', id));
+        alert("Quiz deleted successfully!");
+      } catch (err: any) {
+        alert(`Error deleting quiz: ${err.message}`);
+      }
+    }
+  };
 
   const handleCreateResource = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,10 +272,16 @@ export default function AdminPortal() {
   const modelPapersList = filteredResources.filter(r => r.category === 'model_paper');
   const interactiveList = filteredResources.filter(r => r.category === 'interactive_learning' || r.type === 'html');
 
+  const filteredQuizzes = quizzes.filter(q => {
+    if (selectedClass === 'All') return true;
+    return q.classId === selectedClass;
+  });
+
   const notesCount = notesList.length;
   const worksheetsCount = worksheetsList.length;
   const modelPapersCount = modelPapersList.length;
   const interactiveCount = interactiveList.length;
+  const quizzesCount = filteredQuizzes.length;
 
   const renderResourceCard = (resource: Resource) => {
     return (
@@ -284,6 +356,8 @@ export default function AdminPortal() {
               {['All', 'VI', 'VII', 'VIII', 'IX', 'X'].map((clsId) => {
                 const isActive = selectedClass === clsId;
                 const classResourcesCount = resources.filter(r => clsId === 'All' ? true : r.classId === clsId).length;
+                const classQuizzesCount = quizzes.filter(q => clsId === 'All' ? true : q.classId === clsId).length;
+                const totalCount = classResourcesCount + classQuizzesCount;
                 return (
                   <button
                     key={clsId}
@@ -291,7 +365,7 @@ export default function AdminPortal() {
                     className={`flex items-center justify-between gap-4 px-4 py-3 rounded-2xl text-left transition-all active:scale-[0.98] cursor-pointer whitespace-nowrap lg:w-full ${
                       isActive 
                         ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 dark:shadow-none font-bold' 
-                        : 'bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-305 border border-gray-100/70 dark:border-zinc-800'
+                        : 'bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-355 border border-gray-100/70 dark:border-zinc-800'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -299,7 +373,7 @@ export default function AdminPortal() {
                       <span className="text-sm font-semibold">{clsId === 'All' ? 'All Classes' : `Grade ${clsId}`}</span>
                     </div>
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${isActive ? 'bg-indigo-700 text-white' : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-450'}`}>
-                      {classResourcesCount}
+                      {totalCount}
                     </span>
                   </button>
                 );
@@ -342,6 +416,10 @@ export default function AdminPortal() {
               <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-100/70 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[70px] sm:min-w-[80px]">
                 <span className="text-2xl font-black text-rose-500 dark:text-rose-400">{interactiveCount}</span>
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center">Interactive</span>
+              </div>
+              <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-100/70 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[70px] sm:min-w-[80px]">
+                <span className="text-2xl font-black text-teal-600 dark:text-teal-400">{quizzesCount}</span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center">Quizzes</span>
               </div>
             </div>
           </div>
@@ -495,6 +573,153 @@ export default function AdminPortal() {
                   {interactiveList.map((res) => renderResourceCard(res))}
                 </div>
               )}
+            </div>
+
+            {/* Field E: Interactive Quizzes & AI Generator */}
+            <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-50 dark:border-zinc-800/50">
+                <div className="bg-teal-50 dark:bg-teal-950/30 p-2.5 rounded-xl text-teal-600 dark:text-teal-400 shrink-0">
+                  <Brain size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-gray-900 dark:text-zinc-50">Interactive Quizzes & AI Generator</h3>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Create, generate, and manage interactive student quizzes using Gemini AI</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* AI Quiz Generation Panel */}
+                <div className="lg:col-span-5 bg-gray-50/50 dark:bg-zinc-950 p-6 rounded-2xl border border-gray-100/70 dark:border-zinc-800/80">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles size={16} className="text-indigo-500 dark:text-indigo-400 animate-pulse" />
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-zinc-100">AI Quiz Generator</h4>
+                  </div>
+                  
+                  <form onSubmit={handleGenerateAndSaveQuiz} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Quiz Topic</label>
+                      <input
+                        required
+                        type="text"
+                        value={quizTopic}
+                        onChange={(e) => setQuizTopic(e.target.value)}
+                        placeholder="e.g. Linear Equations in Two Variables"
+                        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 dark:text-zinc-50 font-medium"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Questions</label>
+                        <select
+                          value={quizQuestionsCount}
+                          onChange={(e) => setQuizQuestionsCount(Number(e.target.value))}
+                          className="w-full px-3 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 rounded-xl focus:border-indigo-500 focus:outline-none text-gray-900 dark:text-zinc-50 font-medium cursor-pointer"
+                        >
+                          <option value={3}>3 Questions</option>
+                          <option value={5}>5 Questions</option>
+                          <option value={10}>10 Questions</option>
+                          <option value={15}>15 Questions</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Type</label>
+                        <select
+                          value={quizType}
+                          onChange={(e) => setQuizType(e.target.value as any)}
+                          className="w-full px-3 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 rounded-xl focus:border-indigo-500 focus:outline-none text-gray-900 dark:text-zinc-50 font-medium cursor-pointer"
+                        >
+                          <option value="mcq">MCQ (4 options)</option>
+                          <option value="true_false">True / False</option>
+                          <option value="mix">Mix of both</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Difficulty</label>
+                        <select
+                          value={quizDifficulty}
+                          onChange={(e) => setQuizDifficulty(e.target.value)}
+                          className="w-full px-3 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 rounded-xl focus:border-indigo-500 focus:outline-none text-gray-900 dark:text-zinc-50 font-medium cursor-pointer"
+                        >
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Target Class</label>
+                        <select
+                          value={quizClassId}
+                          onChange={(e) => setQuizClassId(e.target.value)}
+                          className="w-full px-3 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 rounded-xl focus:border-indigo-500 focus:outline-none text-gray-905 dark:text-zinc-50 font-medium cursor-pointer"
+                        >
+                          {['VI', 'VII', 'VIII', 'IX', 'X'].map(c => (
+                            <option key={c} value={c}>Class {c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isGeneratingQuiz}
+                      className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-95 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs cursor-pointer"
+                    >
+                      {isGeneratingQuiz ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Generating & Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={14} />
+                          <span>Generate & Save Quiz</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Quizzes List Panel */}
+                <div className="lg:col-span-7 space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500 mb-2">
+                    Active Quizzes ({quizzesCount})
+                  </h4>
+
+                  {filteredQuizzes.length === 0 ? (
+                    <div className="text-center py-12 border border-dashed border-gray-100 dark:border-zinc-800/80 rounded-2xl bg-gray-50/20 dark:bg-zinc-950/20">
+                      <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">No quizzes configured for Class {selectedClass}.</p>
+                      <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Use the AI Quiz Generator on the left to create one in seconds!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                      {filteredQuizzes.map((quiz) => (
+                        <div key={quiz.id} className="flex items-center justify-between p-4 bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-100/60 dark:border-zinc-800/80 rounded-xl hover:shadow-sm transition-all gap-4">
+                          <div className="min-w-0">
+                            <h5 className="text-sm font-bold text-gray-900 dark:text-zinc-100 truncate">{quiz.title}</h5>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-[9px] font-black rounded text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Class {quiz.classId}</span>
+                              <span className="text-[11px] text-gray-400 dark:text-gray-500">{quiz.questions?.length || 0} Questions</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteQuiz(quiz.id)}
+                            className="p-2 text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-all cursor-pointer"
+                            title="Delete Quiz"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
           </div>

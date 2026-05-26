@@ -16,9 +16,11 @@ import {
   FileSpreadsheet, 
   GraduationCap,
   FileCode,
-  X
+  X,
+  Bookmark
 } from 'lucide-react';
 import { Subject, Resource, Question, Worksheet } from '../data/mockData';
+import { useAuth } from '../lib/AuthContext';
 import Quiz from './Quiz';
 import InteractiveWorksheet from './InteractiveWorksheet';
 import PDFViewer from './PDFViewer';
@@ -37,6 +39,7 @@ interface SubjectDetailProps {
 }
 
 export default function SubjectDetail({ subject, subjects, initialClass = null, onBack, onSelectSubject, onViewPdf }: SubjectDetailProps) {
+  const { user } = useAuth();
   const [selectedClass, setSelectedClass] = useState<string | null>(initialClass);
 
   useEffect(() => {
@@ -358,68 +361,29 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
             {activeTab === 'quizzes' && (
               <div>
                 {!activeQuizId ? (
-                  <div className="space-y-12">
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl shadow-indigo-100">
-                      <div className="absolute top-0 right-0 p-8 opacity-20 rotate-12">
-                        <Sparkles size={120} />
-                      </div>
-                      <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center justify-between">
-                        <div className="max-w-md">
-                          <h3 className="text-2xl font-bold mb-2">AI Quiz Generator</h3>
-                          <p className="text-indigo-100 mb-6 text-sm">Generate a customized quiz for Class {selectedClass} based on your syllabus using Gemini AI.</p>
-                          
-                          <div className="flex flex-wrap gap-2 mb-6">
-                            {['Beginner', 'Intermediate', 'Advanced'].map((lvl) => (
-                              <button
-                                key={lvl}
-                                onClick={() => setDifficulty(lvl)}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${difficulty === lvl ? 'bg-white text-indigo-600' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                              >
-                                {lvl}
-                              </button>
-                            ))}
-                          </div>
-
+                  <div className="space-y-6">
+                    <h4 className="text-lg font-bold text-gray-900 border-b border-gray-100 dark:border-zinc-800 pb-2 mb-6 flex items-center gap-2">
+                      <LayoutGrid size={20} className="text-indigo-600" />
+                      Standard Quizzes
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {currentQuizzes.map((quiz) => (
+                        <div key={quiz.id} className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all">
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-zinc-50 mb-2">{quiz.title}</h3>
+                          <p className="text-gray-500 dark:text-zinc-400 text-sm mb-6">{quiz.questions.length} Questions</p>
                           <button
-                            onClick={handleGenerateAIQuiz}
-                            disabled={isGenerating}
-                            className="flex items-center gap-2 bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+                            onClick={() => setActiveQuizId(quiz.id)}
+                            className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 dark:shadow-none cursor-pointer"
                           >
-                            {isGenerating ? (
-                              <Loader2 size={20} className="animate-spin" />
-                            ) : (
-                              <Sparkles size={20} className="transition-transform group-hover:scale-110" />
-                            )}
-                            {isGenerating ? 'Generating Quiz...' : 'Generate New Quiz'}
+                            Start Quiz
                           </button>
                         </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <LayoutGrid size={20} className="text-indigo-600" />
-                        Standard Quizzes
-                      </h4>
-                      <div className="grid md:grid-cols-2 gap-6">
-                        {currentQuizzes.map((quiz) => (
-                          <div key={quiz.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">{quiz.title}</h3>
-                            <p className="text-gray-500 text-sm mb-6">{quiz.questions.length} Questions</p>
-                            <button
-                              onClick={() => setActiveQuizId(quiz.id)}
-                              className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 cursor-pointer"
-                            >
-                              Start Quiz
-                            </button>
-                          </div>
-                        ))}
-                        {currentQuizzes.length === 0 && (
-                          <div className="col-span-full py-10 text-center text-gray-400 font-medium bg-white rounded-3xl border border-dashed border-gray-200">
-                            No standard quizzes available for Class {selectedClass}. Try generating one with AI!
-                          </div>
-                        )}
-                      </div>
+                      ))}
+                      {currentQuizzes.length === 0 && (
+                        <div className="col-span-full py-10 text-center text-gray-400 dark:text-zinc-500 font-medium bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-gray-250 dark:border-zinc-850">
+                          No standard quizzes available for Class {selectedClass}.
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -441,7 +405,26 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
                     {activeQuiz && (
                       <div>
                         {generatedQuiz && <h2 className="text-2xl font-black text-center mb-8">{activeQuiz.title}</h2>}
-                        <Quiz questions={activeQuiz.questions} onComplete={() => {}} />
+                        <Quiz questions={activeQuiz.questions} onComplete={(score) => {
+                          try {
+                            const userEmail = user?.email || 'anonymous';
+                            const attemptsKey = `quiz_attempts_${userEmail}`;
+                            const attempts = JSON.parse(localStorage.getItem(attemptsKey) || '[]');
+                            const newAttempt = {
+                              id: `attempt-${Date.now()}`,
+                              quizId: activeQuiz.id,
+                              quizTitle: activeQuiz.title,
+                              classId: selectedClass || 'VIII',
+                              score: score,
+                              totalQuestions: activeQuiz.questions.length,
+                              completedAt: new Date().toISOString()
+                            };
+                            attempts.unshift(newAttempt);
+                            localStorage.setItem(attemptsKey, JSON.stringify(attempts.slice(0, 20)));
+                          } catch (e) {
+                            console.error("Error saving quiz attempt:", e);
+                          }
+                        }} />
                       </div>
                     )}
                   </div>
@@ -509,16 +492,58 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
 }
 
 export const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void, onViewHtml?: () => void }> = ({ resource, onViewPdf, onViewHtml }) => {
+  const { user } = useAuth();
+  const userEmail = user?.email || 'anonymous';
+  const bookmarksKey = `bookmarks_${userEmail}`;
+
+  const [isBookmarked, setIsBookmarked] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(bookmarksKey) || '[]');
+      setIsBookmarked(saved.some((r: any) => r.id === resource.id));
+    } catch (_) {}
+  }, [resource.id, bookmarksKey]);
+
+  const toggleBookmark = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const saved = JSON.parse(localStorage.getItem(bookmarksKey) || '[]');
+      const isCurrently = saved.some((r: any) => r.id === resource.id);
+      let updated;
+      if (isCurrently) {
+        updated = saved.filter((r: any) => r.id !== resource.id);
+        setIsBookmarked(false);
+      } else {
+        updated = [...saved, resource];
+        setIsBookmarked(true);
+      }
+      localStorage.setItem(bookmarksKey, JSON.stringify(updated));
+    } catch (_) {}
+  };
+
   const Icon = resource.type === 'pdf' ? FileText : resource.type === 'html' ? FileCode : resource.type === 'worksheet' ? ClipboardList : Youtube;
   const iconColor = resource.type === 'pdf' ? 'text-red-500' : resource.type === 'html' ? 'text-indigo-505' : resource.type === 'worksheet' ? 'text-blue-500' : 'text-rose-500';
 
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm group"
+      className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm group relative"
     >
+      {/* Bookmark Toggle Button */}
+      <button
+        onClick={toggleBookmark}
+        className="absolute top-5 right-5 p-2 rounded-xl bg-gray-50 hover:bg-indigo-50 dark:bg-zinc-950 dark:hover:bg-zinc-850 text-gray-450 hover:text-indigo-600 transition-all cursor-pointer z-10"
+        title={isBookmarked ? "Remove Bookmark" : "Bookmark Resource"}
+      >
+        <Bookmark 
+          size={16} 
+          className={isBookmarked ? "fill-current text-indigo-600 dark:text-indigo-400" : ""} 
+        />
+      </button>
+
       <div className={`p-3 rounded-xl bg-gray-50 dark:bg-zinc-950 w-fit mb-4 group-hover:scale-110 transition-transform ${iconColor}`}>
-        <Icon size={24} />
+         <Icon size={24} />
       </div>
       <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{resource.title}</h4>
       <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed line-clamp-2">{resource.description || 'Access and work through high quality content.'}</p>

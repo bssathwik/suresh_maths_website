@@ -10,6 +10,7 @@ import Navbar from './components/Navbar';
 import SubjectDetail, { ResourceCard } from './components/SubjectDetail';
 import PDFViewer from './components/PDFViewer';
 import AdminPortal from './components/AdminPortal';
+import UserProfile from './components/UserProfile';
 import { subjects as mockSubjects, Subject, Resource } from './data/mockData';
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import { ThemeProvider, useTheme } from './lib/ThemeContext';
@@ -79,6 +80,7 @@ function AppContent() {
   const [viewingResource, setViewingResource] = useState<Resource | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [dbResources, setDbResources] = useState<Resource[]>([]);
 
   const [sliderScrollLeft, setSliderScrollLeft] = useState(0);
@@ -136,9 +138,11 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#FDFDFF] dark:bg-[#0B0B0C] font-sans text-gray-900 dark:text-zinc-100 selection:bg-indigo-100 dark:selection:bg-indigo-950/50 selection:text-indigo-900 dark:selection:text-indigo-200 transition-colors duration-300">
       <Navbar 
-        onHome={() => { setSelectedSubjectId(null); setSelectedClassId(null); setShowAdmin(false); setSearchQuery(''); }} 
+        onHome={() => { setSelectedSubjectId(null); setSelectedClassId(null); setShowAdmin(false); setShowProfile(false); setSearchQuery(''); }} 
         showAdmin={showAdmin}
-        setShowAdmin={setShowAdmin}
+        setShowAdmin={(show) => { setShowAdmin(show); if (show) setShowProfile(false); }}
+        showProfile={showProfile}
+        onProfile={() => { setShowProfile(true); setShowAdmin(false); setSelectedSubjectId(null); }}
       />
 
       <main>
@@ -151,6 +155,23 @@ function AppContent() {
               exit={{ opacity: 0, y: -20 }}
             >
               <AdminPortal />
+            </motion.div>
+          ) : showProfile ? (
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <UserProfile 
+                onBackToClass={() => setShowProfile(false)}
+                onViewPdf={(res) => setViewingResource(res)}
+                onExploreQuizzes={() => {
+                  setShowProfile(false);
+                  setSelectedSubjectId('math');
+                  setSelectedClassId('VIII');
+                }}
+              />
             </motion.div>
           ) : viewingResource ? (
             <motion.div
