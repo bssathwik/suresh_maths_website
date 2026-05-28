@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
-        const isAdminEmail = user.email === 'balabhadrasaisathwik@gmail.com';
+        const isAdminEmail = user.email?.toLowerCase().trim() === 'balabhadrasaisathwik@gmail.com';
         
         try {
           const adminDocRef = doc(db, 'admins', user.uid);
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
             setIsAdmin(true);
           } else {
-            setIsAdmin(adminDoc.exists());
+            setIsAdmin(adminDoc.exists() || isAdminEmail);
           }
         } catch (error) {
           console.error("Error checking/bootstrapping admin status:", error);

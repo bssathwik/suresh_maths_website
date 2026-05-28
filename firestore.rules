@@ -16,7 +16,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        request.auth.token.email.lower() == 'balabhadrasaisathwik@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
 
     function isValidId(id) {
@@ -59,22 +62,26 @@ service cloud.firestore {
     // Collections
     match /subjects/{subjectId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidSubject(request.resource.data);
+      allow create, update: if isAdmin() && isValidSubject(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /resources/{resourceId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidResource(request.resource.data);
+      allow create, update: if isAdmin() && isValidResource(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /quizzes/{quizId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidQuiz(request.resource.data);
+      allow create, update: if isAdmin() && isValidQuiz(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /worksheets/{worksheetId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidWorksheet(request.resource.data);
+      allow create, update: if isAdmin() && isValidWorksheet(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /admins/{uid} {

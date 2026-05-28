@@ -51,6 +51,13 @@ export default function AdminPortal() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   
+  // Quiz Editor states
+  const [editingQuiz, setEditingQuiz] = useState<any | null>(null);
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [editQuizTitle, setEditQuizTitle] = useState('');
+  const [editQuizClassId, setEditQuizClassId] = useState('VIII');
+  const [editQuizQuestions, setEditQuizQuestions] = useState<any[]>([]);
+  
   // Dashboard class filter state
   const [selectedClass, setSelectedClass] = useState<string>('All');
 
@@ -71,14 +78,26 @@ export default function AdminPortal() {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
   useEffect(() => {
-    const qResources = query(collection(db, 'resources'), orderBy('createdAt', 'desc'));
+    const qResources = collection(db, 'resources');
     const unsubscribeResources = onSnapshot(qResources, (snapshot) => {
-      setResources(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) as Resource[]);
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) as Resource[];
+      const sortedItems = [...items].sort((a: any, b: any) => {
+        const tA = a.createdAt?.seconds || a.createdAt?.toMillis?.() || 0;
+        const tB = b.createdAt?.seconds || b.createdAt?.toMillis?.() || 0;
+        return tB - tA;
+      });
+      setResources(sortedItems);
     });
 
-    const qQuizzes = query(collection(db, 'quizzes'), orderBy('createdAt', 'desc'));
+    const qQuizzes = collection(db, 'quizzes');
     const unsubscribeQuizzes = onSnapshot(qQuizzes, (snapshot) => {
-      setQuizzes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      const sortedItems = [...items].sort((a: any, b: any) => {
+        const tA = a.createdAt?.seconds || a.createdAt?.toMillis?.() || 0;
+        const tB = b.createdAt?.seconds || b.createdAt?.toMillis?.() || 0;
+        return tB - tA;
+      });
+      setQuizzes(sortedItems);
     });
 
     return () => {
@@ -150,6 +169,7 @@ export default function AdminPortal() {
       if (editingItem) {
         await updateDoc(doc(db, 'resources', editingItem.id), {
           ...data,
+          id: editingItem.id,
           updatedAt: serverTimestamp()
         });
       } else {
@@ -169,8 +189,46 @@ export default function AdminPortal() {
   };
 
   const handleDelete = async (coll: string, id: string) => {
-    if (confirm("Are you sure you want to delete this?")) {
-      await deleteDoc(doc(db, coll, id));
+    if (confirm("Are you sure you want to delete this resource?")) {
+      try {
+        await deleteDoc(doc(db, coll, id));
+        alert("Resource deleted successfully!");
+      } catch (err: any) {
+        console.error("Error deleting resource:", err);
+        alert(`Error deleting resource: ${err.message}`);
+      }
+    }
+  };
+
+  const openEditQuiz = (quiz: any) => {
+    setEditingQuiz(quiz);
+    setEditQuizTitle(quiz.title);
+    setEditQuizClassId(quiz.classId || 'VIII');
+    setEditQuizQuestions(quiz.questions ? JSON.parse(JSON.stringify(quiz.questions)) : []);
+    setIsQuizModalOpen(true);
+  };
+
+  const handleSaveQuizEdits = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editQuizTitle.trim()) {
+      alert("Please enter a quiz title.");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'quizzes', editingQuiz.id), {
+        id: editingQuiz.id,
+        subjectId: editingQuiz.subjectId || 'math',
+        title: editQuizTitle,
+        classId: editQuizClassId,
+        questions: editQuizQuestions,
+        updatedAt: serverTimestamp()
+      });
+      setIsQuizModalOpen(false);
+      setEditingQuiz(null);
+      alert("Quiz updated successfully!");
+    } catch (error: any) {
+      console.error("Error updating quiz:", error);
+      alert(`Error updating quiz: ${error.message}`);
     }
   };
 
@@ -707,13 +765,22 @@ export default function AdminPortal() {
                               <span className="text-[11px] text-gray-400 dark:text-gray-500">{quiz.questions?.length || 0} Questions</span>
                             </div>
                           </div>
-                          <button
-                            onClick={() => handleDeleteQuiz(quiz.id)}
-                            className="p-2 text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-all cursor-pointer"
-                            title="Delete Quiz"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => openEditQuiz(quiz)}
+                              className="p-2 text-gray-400 dark:text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-all cursor-pointer"
+                              title="Edit Quiz"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteQuiz(quiz.id)}
+                              className="p-2 text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-all cursor-pointer"
+                              title="Delete Quiz"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -865,6 +932,198 @@ export default function AdminPortal() {
                 >
                   {editingItem ? 'Save Changes' : 'Create Now'}
                 </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Live Quiz Editor Modal */}
+      <AnimatePresence>
+        {isQuizModalOpen && editingQuiz && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setIsQuizModalOpen(false); setEditingQuiz(null); }}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl p-6 sm:p-8 max-h-[92vh] flex flex-col overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6 shrink-0">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-zinc-50">Edit Quiz</h2>
+                  <p className="text-xs text-gray-450 dark:text-gray-500">Edit Quiz title, target class grade, and interactive questions.</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => { setIsQuizModalOpen(false); setEditingQuiz(null); }} 
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 dark:text-zinc-400 rounded-xl transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Form Elements */}
+              <form onSubmit={handleSaveQuizEdits} className="flex-1 flex flex-col overflow-hidden gap-6">
+                {/* Top settings row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0 bg-gray-50/50 dark:bg-zinc-950 p-4 rounded-2xl border border-gray-100/50 dark:border-zinc-850">
+                  <div className="sm:col-span-2 space-y-1 font-sans">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500">Quiz Title</label>
+                    <input
+                      required
+                      type="text"
+                      value={editQuizTitle}
+                      onChange={(e) => setEditQuizTitle(e.target.value)}
+                      className="w-full px-4 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:border-indigo-500 focus:outline-none text-gray-900 dark:text-zinc-50 font-semibold"
+                      placeholder="e.g. Fractions Quiz"
+                    />
+                  </div>
+                  <div className="space-y-1 font-sans">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500">Target Grade</label>
+                    <select
+                      value={editQuizClassId}
+                      onChange={(e) => setEditQuizClassId(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:border-indigo-500 focus:outline-none text-gray-950 dark:text-zinc-50 font-bold"
+                    >
+                      {['VI', 'VII', 'VIII', 'IX', 'X'].map(c => <option key={c} value={c}>Grade {c}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Scrollable Questions list */}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-6 scrollbar-thin">
+                  <div className="flex items-center justify-between border-b border-gray-100 dark:border-zinc-800 pb-2">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500">Questions List ({editQuizQuestions.length})</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditQuizQuestions([
+                          ...editQuizQuestions,
+                          {
+                            id: `q-${Date.now()}`,
+                            text: 'New Quiz Question?',
+                            options: ['Option A', 'Option B', 'Option C', 'Option D'],
+                            correctAnswer: 0
+                          }
+                        ]);
+                      }}
+                      className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={12} /> Add Question
+                    </button>
+                  </div>
+
+                  {editQuizQuestions.length === 0 ? (
+                    <div className="text-center py-10 border border-dashed border-gray-100 dark:border-zinc-805 rounded-2xl bg-gray-50/20 dark:bg-zinc-950/10">
+                      <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">No quiz questions defined.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {editQuizQuestions.map((q, qIndex) => (
+                        <div key={q.id || qIndex} className="p-4 bg-gray-50/40 dark:bg-[#15151a] border border-gray-100/80 dark:border-zinc-800/80 rounded-2xl space-y-4 relative">
+                          {/* Question delete trigger */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditQuizQuestions(editQuizQuestions.filter((_, idx) => idx !== qIndex));
+                            }}
+                            className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-red-500 dark:text-zinc-550 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Question"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+
+                          {/* Question text */}
+                          <div className="space-y-1 pr-8">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Question {qIndex + 1}</label>
+                            <input
+                              required
+                              type="text"
+                              value={q.text}
+                              onChange={(e) => {
+                                const updated = [...editQuizQuestions];
+                                updated[qIndex].text = e.target.value;
+                                setEditQuizQuestions(updated);
+                              }}
+                              className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:border-indigo-500 focus:outline-none text-gray-955 dark:text-zinc-100 font-semibold font-sans"
+                              placeholder="Enter question text"
+                            />
+                          </div>
+
+                          {/* MCQ Options list */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-zinc-500">Choices & Correct Solution</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {q.options.map((opt: string, optIndex: number) => {
+                                const isCorrect = q.correctAnswer === optIndex;
+                                return (
+                                  <div key={optIndex} className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = [...editQuizQuestions];
+                                        updated[qIndex].correctAnswer = optIndex;
+                                        setEditQuizQuestions(updated);
+                                      }}
+                                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                                        isCorrect
+                                          ? 'border-emerald-500 bg-emerald-500 text-white'
+                                          : 'border-gray-250 hover:border-gray-400 dark:border-zinc-700 dark:hover:border-zinc-500 bg-white dark:bg-zinc-900 text-transparent'
+                                      }`}
+                                      title="Mark as Correct Answer"
+                                    >
+                                      <CheckCircle2 size={12} className="stroke-[3]" />
+                                    </button>
+                                    <input
+                                      required
+                                      type="text"
+                                      value={opt}
+                                      onChange={(e) => {
+                                        const updated = [...editQuizQuestions];
+                                        updated[qIndex].options[optIndex] = e.target.value;
+                                        setEditQuizQuestions(updated);
+                                      }}
+                                      className={`flex-1 px-3 py-1.5 bg-white dark:bg-zinc-900 border text-xs focus:outline-none transition-all rounded-xl ${
+                                        isCorrect
+                                          ? 'border-emerald-300 dark:border-emerald-950 focus:border-emerald-500 font-bold text-emerald-800 dark:text-emerald-400'
+                                          : 'border-gray-200 dark:border-zinc-800 focus:border-indigo-500 text-gray-700 dark:text-zinc-300'
+                                      }`}
+                                      placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions buttons footer */}
+                <div className="flex justify-end gap-3 shrink-0 pt-4 border-t border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                  <button
+                    type="button"
+                    onClick={() => { setIsQuizModalOpen(false); setEditingQuiz(null); }}
+                    className="px-5 py-3 bg-gray-50 hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-300 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-3 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-bold shadow-lg shadow-indigo-100 dark:shadow-none text-xs cursor-pointer"
+                  >
+                    Save Quiz Changes
+                  </button>
+                </div>
               </form>
             </motion.div>
           </div>

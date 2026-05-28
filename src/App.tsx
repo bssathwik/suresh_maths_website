@@ -101,10 +101,15 @@ function AppContent() {
   };
 
   useEffect(() => {
-    const qRes = query(collection(db, 'resources'), orderBy('createdAt', 'desc'));
+    const qRes = collection(db, 'resources');
     const unsubscribeRes = onSnapshot(qRes, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      setDbResources(docs);
+      const sortedDocs = [...docs].sort((a: any, b: any) => {
+        const tA = a.createdAt?.seconds || a.createdAt?.toMillis?.() || 0;
+        const tB = b.createdAt?.seconds || b.createdAt?.toMillis?.() || 0;
+        return tB - tA;
+      });
+      setDbResources(sortedDocs);
     });
     return () => unsubscribeRes();
   }, []);
