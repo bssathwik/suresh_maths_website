@@ -5,12 +5,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { TrendingUp, GraduationCap, Search, Sparkles, User as UserIcon, LogOut, Settings, BookOpenText, ClipboardList, BrainCircuit, Youtube, Award, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, GraduationCap, Search, Sparkles, User as UserIcon, LogOut, Settings, BookOpenText, ClipboardList, BrainCircuit, Youtube, Award, ChevronLeft, ChevronRight, X, ExternalLink } from 'lucide-react';
 import Navbar from './components/Navbar';
 import SubjectDetail, { ResourceCard } from './components/SubjectDetail';
 import PDFViewer from './components/PDFViewer';
 import AdminPortal from './components/AdminPortal';
 import UserProfile from './components/UserProfile';
+import AuthPage from './components/AuthPage';
 import { subjects as mockSubjects, Subject, Resource } from './data/mockData';
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import { ThemeProvider, useTheme } from './lib/ThemeContext';
@@ -73,11 +74,13 @@ const pillars = [
 ];
 
 function AppContent() {
-  const { user, isAdmin, signIn, logout } = useAuth();
+  const { user, isAdmin, userProfile, loading, logout } = useAuth();
   const { theme } = useTheme();
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [viewingResource, setViewingResource] = useState<Resource | null>(null);
+  const [viewingHtmlResource, setViewingHtmlResource] = useState<Resource | null>(null);
+  const [isHtmlFullScreen, setIsHtmlFullScreen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdmin, setShowAdmin] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -113,6 +116,45 @@ function AppContent() {
     });
     return () => unsubscribeRes();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FDFDFF] dark:bg-[#0B0B0C] flex flex-col items-center justify-center p-6 text-center">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500 dark:text-zinc-400 font-bold text-xs uppercase tracking-widest animate-pulse">Loading Suresh Maths...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  if (userProfile?.isBlocked) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#0B0B0C] flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 p-8 sm:p-10 rounded-[2.5rem] shadow-xl flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/20 flex items-center justify-center text-rose-600 dark:text-rose-450 border border-rose-100 dark:border-rose-900 mb-6 shrink-0">
+            <X size={32} />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-zinc-50 tracking-tight leading-none mb-3">
+            Account Access Blocked
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-8">
+            Your learning account has been blocked by the Administrator. Please contact <strong>Suresh Sir</strong> for assistance or re-activation inquiries.
+          </p>
+          <button
+            onClick={logout}
+            className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-md active:scale-95 text-xs uppercase tracking-wider cursor-pointer"
+          >
+            Log Out Account
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const currentSubjects = mockSubjects;
   const selectedSubject = currentSubjects.find(s => s.id === selectedSubjectId);
@@ -259,6 +301,14 @@ function AppContent() {
                           <ResourceCard
                             resource={resource}
                             onViewPdf={() => setViewingResource(resource)}
+                            onViewHtml={() => {
+                              setViewingHtmlResource(resource);
+                              setIsHtmlFullScreen(false);
+                            }}
+                            onViewHtmlNewPage={() => {
+                              setViewingHtmlResource(resource);
+                              setIsHtmlFullScreen(true);
+                            }}
                           />
                         </div>
                       ))}
@@ -460,6 +510,70 @@ function AppContent() {
           © {new Date().getFullYear()} sureshmathsmaterial. All rights reserved.
         </div>
       </footer>
+
+      {/* HTML Resource Viewer Modal */}
+      <AnimatePresence>
+        {viewingHtmlResource && (
+          <div className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-300 ${isHtmlFullScreen ? 'p-0' : 'p-4 sm:p-6 md:p-10'}`}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setViewingHtmlResource(null);
+                setIsHtmlFullScreen(false);
+              }}
+              className="absolute inset-0 bg-gray-950/80 backdrop-blur-sm z-[55]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className={`relative bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 z-[60] ${
+                isHtmlFullScreen 
+                  ? 'w-full h-full rounded-none border-0' 
+                  : 'w-full h-[85vh] max-w-6xl border border-gray-100 dark:border-zinc-800 rounded-[2rem]'
+              }`}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800 shrink-0">
+                <div>
+                  <h3 className="font-extrabold text-lg text-gray-950 dark:text-zinc-50">{viewingHtmlResource.title}</h3>
+                  <p className="text-xs text-gray-400 dark:text-zinc-500">Interactive Student Resource</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsHtmlFullScreen(!isHtmlFullScreen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-55 hover:bg-indigo-110 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-sm border border-indigo-100/30"
+                    title={isHtmlFullScreen ? "Minimize edge-to-edge view to popup dialog format" : "Open inside a clean edge-to-edge viewport as a new page within the website"}
+                  >
+                    <ExternalLink size={14} />
+                    <span>{isHtmlFullScreen ? "Minimize Screen" : "Open in New Page"}</span>
+                  </button>
+                  <div className="h-6 w-px bg-gray-200 dark:bg-zinc-800 mx-1"></div>
+                  <button 
+                    onClick={() => {
+                      setViewingHtmlResource(null);
+                      setIsHtmlFullScreen(false);
+                    }}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-350 rounded-xl transition-colors cursor-pointer"
+                    title="Close"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 bg-gray-50 dark:bg-[#070708] relative">
+                <iframe
+                  className="w-full h-full border-0"
+                  src={viewingHtmlResource.url}
+                  sandbox="allow-scripts allow-modals"
+                  title={viewingHtmlResource.title}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

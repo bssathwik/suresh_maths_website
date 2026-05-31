@@ -86,7 +86,12 @@ service cloud.firestore {
 
     match /admins/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow write: if isSignedIn() && ('email' in request.auth.token && request.auth.token.email.lower() == 'balabhadrasaisathwik@gmail.com') && request.auth.uid == uid;
+      allow write: if isAdmin();
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
   }
 }

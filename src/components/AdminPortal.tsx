@@ -27,7 +27,11 @@ import {
   Globe,
   Sparkles,
   Loader2,
-  Brain
+  Brain,
+  Users,
+  Shield,
+  ShieldAlert,
+  Search
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,6 +47,7 @@ interface Resource {
   url: string;
   description?: string;
   category: 'notes' | 'worksheet' | 'model_paper' | 'interactive_learning';
+  isSpecialAccess?: boolean;
 }
 
 export default function AdminPortal() {
@@ -68,6 +73,7 @@ export default function AdminPortal() {
   const [resourceClassId, setResourceClassId] = useState('X');
   const [resourceDesc, setResourceDesc] = useState('');
   const [resourceCategory, setResourceCategory] = useState<'notes' | 'worksheet' | 'model_paper' | 'interactive_learning'>('notes');
+  const [resourceIsSpecialAccess, setResourceIsSpecialAccess] = useState(false);
 
   // AI Quiz Generator states
   const [quizTopic, setQuizTopic] = useState('');
@@ -76,6 +82,14 @@ export default function AdminPortal() {
   const [quizQuestionsCount, setQuizQuestionsCount] = useState<number>(5);
   const [quizClassId, setQuizClassId] = useState<string>('VIII');
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+
+  // User Control and Access states
+  const [activeSection, setActiveSection] = useState<'content' | 'users'>('content');
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [adminsList, setAdminsList] = useState<any[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'admins' | 'students'>('all');
+  const [isUpdatingUser, setIsUpdatingUser] = useState<string | null>(null);
 
   useEffect(() => {
     const qResources = collection(db, 'resources');
@@ -100,9 +114,27 @@ export default function AdminPortal() {
       setQuizzes(sortedItems);
     });
 
+    const qUsers = collection(db, 'users');
+    const unsubscribeUsers = onSnapshot(qUsers, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsersList(items);
+    }, (error) => {
+      console.error("Error subscribing to users in AdminPortal:", error);
+    });
+
+    const qAdmins = collection(db, 'admins');
+    const unsubscribeAdmins = onSnapshot(qAdmins, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAdminsList(items);
+    }, (error) => {
+      console.error("Error subscribing to admins in AdminPortal:", error);
+    });
+
     return () => {
       unsubscribeResources();
       unsubscribeQuizzes();
+      unsubscribeUsers();
+      unsubscribeAdmins();
     };
   }, []);
 
@@ -164,6 +196,7 @@ export default function AdminPortal() {
         classId: resourceClassId,
         description: resourceDesc,
         category: resourceCategory,
+        isSpecialAccess: resourceIsSpecialAccess,
       };
 
       if (editingItem) {
@@ -237,6 +270,7 @@ export default function AdminPortal() {
     setResourceURL('');
     setResourceDesc('');
     setResourceCategory('notes');
+    setResourceIsSpecialAccess(false);
     setEditingItem(null);
     setIsModalOpen(false);
   };
@@ -316,6 +350,7 @@ export default function AdminPortal() {
     setResourceClassId(resource.classId);
     setResourceDesc(resource.description || '');
     setResourceCategory(resource.category || 'notes');
+    setResourceIsSpecialAccess(resource.isSpecialAccess || false);
     setIsModalOpen(true);
   };
 
@@ -377,6 +412,100 @@ export default function AdminPortal() {
     );
   };
 
+  const handleToggleAdminRole = async (targetUser: any) => {
+    const isTargetAdmin = adminsList.some(admin => admin.id === targetUser.uid);
+    setIsUpdatingUser(targetUser.uid);
+    try {
+      if (isTargetAdmin) {
+        if (targetUser.email === 'balabhadrasaisathwik@gmail.com') {
+          alert("Cannot demote the supreme platform owner admin!");
+          setIsUpdatingUser(null);
+          return;
+        }
+        if (confirm(`Are you sure you want to remove administrator privileges from ${targetUser.displayName || targetUser.email}?`)) {
+          await deleteDoc(doc(db, 'admins', targetUser.uid));
+          alert("Admin privileges revoked successfully.");
+        }
+      } else {
+        if (confirm(`Are you sure you want to promote ${targetUser.displayName || targetUser.email} to Administrator?`)) {
+          await setDoc(doc(db, 'admins', targetUser.uid), {
+            email: targetUser.email,
+            role: 'admin'
+          });
+          alert("User promoted to Administrator successfully!");
+        }
+      }
+    } catch (error: any) {
+      console.error("Error updating user role:", error);
+      alert(`Failed to update role: ${error.message}`);
+    } finally {
+      setIsUpdatingUser(null);
+    }
+  };
+
+  const handleToggleSpecialAccess = async (targetUser: any) => {
+    const hasSpecial = !!targetUser.specialAccess;
+    setIsUpdatingUser(targetUser.uid);
+    try {
+      if (confirm(`Are you sure you want to ${hasSpecial ? 'revoke' : 'grant'} Special Access for ${targetUser.displayName || targetUser.email}?`)) {
+        await setDoc(doc(db, 'users', targetUser.uid), {
+          specialAccess: !hasSpecial
+        }, { merge: true });
+        alert(`Special Access ${hasSpecial ? 'revoked' : 'granted'} successfully!`);
+      }
+    } catch (error: any) {
+      console.error("Error updating special access:", error);
+      alert(`Failed to update special access: ${error.message}`);
+    } finally {
+      setIsUpdatingUser(null);
+    }
+  };
+
+  const handleToggleBlockState = async (targetUser: any) => {
+    if (targetUser.email === 'balabhadrasaisathwik@gmail.com') {
+      alert("Cannot block the platform owner!");
+      return;
+    }
+    const isBlocked = !!targetUser.isBlocked;
+    setIsUpdatingUser(targetUser.uid);
+    try {
+      if (confirm(`Are you sure you want to ${isBlocked ? 'unblock' : 'block'} user ${targetUser.displayName || targetUser.email}?`)) {
+        await setDoc(doc(db, 'users', targetUser.uid), {
+          isBlocked: !isBlocked
+        }, { merge: true });
+        alert(`User is now ${isBlocked ? 'unblocked' : 'blocked'} successfully!`);
+      }
+    } catch (error: any) {
+      console.error("Error updating block state:", error);
+      alert(`Failed to update block state: ${error.message}`);
+    } finally {
+      setIsUpdatingUser(null);
+    }
+  };
+
+  const handleDeleteUserRecord = async (targetUser: any) => {
+    if (targetUser.email === 'balabhadrasaisathwik@gmail.com') {
+      alert("Cannot delete the supreme platform owner account!");
+      return;
+    }
+    if (confirm(`Are you sure you want to delete user ${targetUser.displayName || targetUser.email} from the database? This will clear their registered profile, but won't delete their Firebase auth registration.`)) {
+      setIsUpdatingUser(targetUser.uid);
+      try {
+        await deleteDoc(doc(db, 'users', targetUser.uid));
+        const wasAdmin = adminsList.some(admin => admin.id === targetUser.uid);
+        if (wasAdmin) {
+          await deleteDoc(doc(db, 'admins', targetUser.uid));
+        }
+        alert("User record removed successfully.");
+      } catch (error: any) {
+        console.error("Error deleting user record:", error);
+        alert(`Failed to delete user record: ${error.message}`);
+      } finally {
+        setIsUpdatingUser(null);
+      }
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Upper header action area */}
@@ -403,8 +532,33 @@ export default function AdminPortal() {
         </div>
       </div>
 
-      {/* Main Dual-Column Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* Sections Tab Navigation */}
+      <div className="flex border-b border-gray-150 dark:border-zinc-800 pb-1 mb-8 overflow-x-auto scrollbar-none gap-2">
+        <button
+          onClick={() => setActiveSection('content')}
+          className={`px-5 py-3 text-center text-sm font-black border-b-2 cursor-pointer transition-all whitespace-nowrap ${
+            activeSection === 'content'
+              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+              : 'border-transparent text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-350'
+          }`}
+        >
+          Syllabus Content Library
+        </button>
+        <button
+          onClick={() => setActiveSection('users')}
+          className={`px-5 py-3 text-center text-sm font-black border-b-2 cursor-pointer transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
+            activeSection === 'users'
+              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+              : 'border-transparent text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-350'
+          }`}
+        >
+          <Users size={16} />
+          User Registration & Access Control ({usersList.length})
+        </button>
+      </div>
+
+      {activeSection === 'content' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Left Column: Interactive Class Selection Panel */}
         <div className="lg:col-span-3 space-y-4">
@@ -793,6 +947,268 @@ export default function AdminPortal() {
         </div>
 
       </div>
+      ) : (
+        <div className="space-y-6">
+          {/* User registration metrics / introduction card */}
+          <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2.5rem] p-6 sm:p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1 rounded-full w-max mb-3">
+                Access Center
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-zinc-50">
+                User Directory & Roles Management
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-xl leading-relaxed">
+                Review verified learning accounts, award master administrative privileges, or remove profile database states.
+              </p>
+            </div>
+
+            {/* Quick stats counter blocks */}
+            <div className="flex flex-wrap gap-4">
+              <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-150/50 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[100px]">
+                <span className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{usersList.length}</span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center mt-1">Total Users</span>
+              </div>
+              <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-150/50 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[100px]">
+                <span className="text-3xl font-black text-amber-500 dark:text-amber-400">{adminsList.length}</span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center mt-1">Admins</span>
+              </div>
+              <div className="bg-gray-50/50 dark:bg-zinc-900/60 border border-gray-150/50 dark:border-zinc-800 p-4 rounded-2xl flex flex-col items-center justify-center min-w-[100px]">
+                <span className="text-3xl font-black text-emerald-500 dark:text-emerald-400">
+                  {Math.max(0, usersList.length - adminsList.length)}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center mt-1">Students</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and Filters line */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/30 dark:bg-zinc-900/10 p-4 rounded-3xl border border-gray-100 dark:border-zinc-800/80">
+            {/* Search Input Field */}
+            <div className="relative flex-1 max-w-md">
+              <span className="absolute inset-y-0 left-4 flex items-center text-gray-400 pointer-events-none">
+                <Search size={16} />
+              </span>
+              <input
+                type="text"
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                placeholder="Search by name or email address..."
+                className="w-full pl-11 pr-5 py-3 text-sm bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-0 focus:outline-none rounded-2xl text-gray-955 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-600"
+              />
+            </div>
+
+            {/* Filter buttons pills */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setUserRoleFilter('all')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  userRoleFilter === 'all'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-zinc-300 border border-gray-150 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800'
+                }`}
+              >
+                All Roles
+              </button>
+              <button
+                onClick={() => setUserRoleFilter('admins')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  userRoleFilter === 'admins'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-zinc-300 border border-gray-150 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800'
+                }`}
+              >
+                Admins Only
+              </button>
+              <button
+                onClick={() => setUserRoleFilter('students')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  userRoleFilter === 'students'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-zinc-300 border border-gray-150 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800'
+                }`}
+              >
+                Students Only
+              </button>
+            </div>
+          </div>
+
+          {/* Directory Users Grid */}
+          <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+            <div className="p-6 border-b border-gray-50 dark:border-zinc-800/80 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-gray-900 dark:text-zinc-50">Registered Learner Accounts</h3>
+                <p className="text-xs text-gray-400 dark:text-zinc-500">Live profiles synced from Google Provider Sign-Ins</p>
+              </div>
+            </div>
+
+            {usersList.length === 0 ? (
+              <div className="py-24 text-center p-8">
+                <Users size={48} className="mx-auto text-gray-300 dark:text-zinc-750 mb-4 animate-pulse" />
+                <h4 className="text-lg font-black text-gray-800 dark:text-zinc-200">No active users logged</h4>
+                <p className="text-sm text-gray-400 dark:text-zinc-500 mt-1 max-w-md mx-auto leading-relaxed">
+                  When students log into their profiles using Google authentication, their information will automatically appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-55 dark:divide-zinc-800/60">
+                {usersList
+                  .filter((usr: any) => {
+                    const matchQuery =
+                      usr.displayName?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                      usr.email?.toLowerCase().includes(userSearchQuery.toLowerCase());
+                    if (!matchQuery) return false;
+
+                    const isAd = adminsList.some(admin => admin.id === usr.uid || admin.email === usr.email);
+                    if (userRoleFilter === 'admins') return isAd;
+                    if (userRoleFilter === 'students') return !isAd;
+                    return true;
+                  })
+                  .map((usr: any) => {
+                    const isUserAdmin = adminsList.some(admin => admin.id === usr.uid || admin.email === usr.email);
+                    const isChief = usr.email?.toLowerCase() === 'balabhadrasaisathwik@gmail.com';
+
+                    return (
+                      <div
+                        key={usr.uid || usr.id}
+                        className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 hover:bg-gray-50/40 dark:hover:bg-zinc-900/50 transition-colors"
+                      >
+                        {/* Left Info Column */}
+                        <div className="flex items-center gap-4">
+                          {/* Image/Avatar */}
+                          {usr.photoURL ? (
+                            <img
+                              src={usr.photoURL}
+                              referrerPolicy="no-referrer"
+                              alt={usr.displayName || 'Avatar'}
+                              className="w-14 h-14 rounded-2xl object-cover border border-gray-105 dark:border-zinc-800 shadow-sm shrink-0"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-extrabold text-xl border border-indigo-100/30 shrink-0">
+                              {usr.displayName ? usr.displayName.charAt(0) : <Users size={22} />}
+                            </div>
+                          )}
+
+                          {/* Identity Details */}
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-extrabold text-base text-gray-955 dark:text-zinc-50 truncate">
+                                {usr.displayName || 'Anonymous Student'}
+                              </h4>
+
+                              {/* Dynamic Roles Badges */}
+                              {isChief ? (
+                                <span className="bg-amber-100 dark:bg-amber-955/35 text-amber-700 dark:text-amber-450 border border-amber-200/50 dark:border-amber-950 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider font-sans">
+                                  Supreme Owner
+                                </span>
+                              ) : isUserAdmin ? (
+                                <span className="bg-indigo-50 dark:bg-indigo-955/35 text-indigo-600 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-950 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider font-sans">
+                                  Administrator
+                                </span>
+                              ) : (
+                                <span className="bg-gray-100 dark:bg-zinc-800 text-gray-550 dark:text-zinc-455 border border-transparent px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider font-sans">
+                                  Student Learner
+                                </span>
+                              )}
+
+                              {/* Special Access badge */}
+                              {usr.specialAccess && (
+                                <span className="bg-amber-50 dark:bg-amber-955/25 text-amber-600 dark:text-amber-400 border border-amber-200/30 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider font-sans">
+                                  🔑 Special Access
+                                </span>
+                              )}
+
+                              {/* Blocked Badge */}
+                              {usr.isBlocked && (
+                                <span className="bg-rose-100 dark:bg-rose-955/35 text-rose-750 dark:text-rose-400 border border-rose-200 dark:border-rose-950 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider font-sans">
+                                  🚫 Blocked
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">{usr.email}</p>
+                            {usr.lastLogin && (
+                              <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-1 flex items-center gap-1.5 font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Last Action: {new Date(usr.lastLogin).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right Control actions Column */}
+                        <div className="flex flex-wrap items-center gap-3 shrink-0 sm:self-center">
+                          {/* Toggle Special Access */}
+                          {!isChief && (
+                            <button
+                              disabled={isUpdatingUser === usr.uid}
+                              onClick={() => handleToggleSpecialAccess(usr)}
+                              className={`px-3 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer border ${
+                                usr.specialAccess
+                                  ? 'bg-amber-100 border-amber-200 text-amber-700 hover:bg-amber-150'
+                                  : 'bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                              } disabled:opacity-50`}
+                            >
+                              <span>{usr.specialAccess ? '🔑 Revoke Access' : '🔑 Grant Access'}</span>
+                            </button>
+                          )}
+
+                          {/* Toggle Block/Unblock Status */}
+                          {!isChief && (
+                            <button
+                              disabled={isUpdatingUser === usr.uid}
+                              onClick={() => handleToggleBlockState(usr)}
+                              className={`px-3 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer border ${
+                                usr.isBlocked
+                                  ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-600 dark:text-emerald-400'
+                                  : 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-600 dark:text-rose-400'
+                              } disabled:opacity-50`}
+                            >
+                              <span>{usr.isBlocked ? '🔓 Unblock' : '🔒 Block'}</span>
+                            </button>
+                          )}
+
+                          {/* Toggle Admin role privileges */}
+                          {!isChief && (
+                            <button
+                              disabled={isUpdatingUser === usr.uid}
+                              onClick={() => handleToggleAdminRole(usr)}
+                              className={`px-3 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 cursor-pointer border ${
+                                isUserAdmin
+                                  ? 'bg-rose-50 border-rose-100 hover:bg-rose-100 dark:bg-rose-955/20 dark:border-rose-950/30 text-rose-600 dark:text-rose-400'
+                                  : 'bg-indigo-50 border-indigo-100 hover:bg-indigo-100 dark:bg-indigo-955/20 dark:border-indigo-950/30 text-indigo-600 dark:text-indigo-400'
+                              } disabled:opacity-50`}
+                            >
+                              {isUpdatingUser === usr.uid ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : isUserAdmin ? (
+                                <ShieldAlert size={13} />
+                              ) : (
+                                <Shield size={13} />
+                              )}
+                              <span>{isUserAdmin ? 'Revoke Admin' : 'Grant Admin'}</span>
+                            </button>
+                          )}
+
+                          {/* Delete registry profile entirely */}
+                          {!isChief && (
+                            <button
+                              disabled={isUpdatingUser === usr.uid}
+                              onClick={() => handleDeleteUserRecord(usr)}
+                              className="p-3 text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-955/20 border border-transparent hover:border-red-100 dark:hover:border-red-950/30 rounded-xl transition-all cursor-pointer"
+                              title="Delete User Record"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       <AnimatePresence>
@@ -924,6 +1340,20 @@ export default function AdminPortal() {
                     className="w-full px-5 py-3.5 bg-gray-50 dark:bg-zinc-800 border border-transparent rounded-2xl focus:bg-white dark:focus:bg-zinc-900 focus:border-indigo-600 dark:focus:border-indigo-500 focus:outline-none transition-all font-medium min-h-[100px] text-gray-900 dark:text-zinc-50"
                     placeholder="What is this resource about?"
                   />
+                </div>
+
+                <div className="flex items-start gap-3.5 p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl">
+                  <input
+                    type="checkbox"
+                    id="isSpecialAccess"
+                    checked={resourceIsSpecialAccess}
+                    onChange={(e) => setResourceIsSpecialAccess(e.target.checked)}
+                    className="mt-1 w-5 h-5 text-indigo-650 focus:ring-indigo-500 border-gray-150 rounded cursor-pointer"
+                  />
+                  <label htmlFor="isSpecialAccess" className="text-xs font-bold text-gray-600 dark:text-zinc-300 cursor-pointer select-none leading-relaxed">
+                    <span className="block text-amber-600 dark:text-amber-400 font-extrabold uppercase tracking-wider text-[10px] mb-0.5">Special Access Required</span>
+                    Require custom authorization state. Students can only view, download, or interaction-preview this material if granted access by you.
+                  </label>
                 </div>
 
                 <button

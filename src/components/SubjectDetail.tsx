@@ -17,7 +17,10 @@ import {
   GraduationCap,
   FileCode,
   X,
-  Bookmark
+  Bookmark,
+  ExternalLink,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { Subject, Resource, Question, Worksheet } from '../data/mockData';
 import { useAuth } from '../lib/AuthContext';
@@ -56,6 +59,7 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
   const [dbResources, setDbResources] = useState<Resource[]>([]);
   const [dbQuizzes, setDbQuizzes] = useState<any[]>([]);
   const [activeHtmlResource, setActiveHtmlResource] = useState<Resource | null>(null);
+  const [isHtmlFullScreen, setIsHtmlFullScreen] = useState(false);
 
   useEffect(() => {
     if (!subject.id) return;
@@ -165,7 +169,14 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
               key={resource.id} 
               resource={resource} 
               onViewPdf={() => onViewPdf(resource)}
-              onViewHtml={() => setActiveHtmlResource(resource)}
+              onViewHtml={() => {
+                setActiveHtmlResource(resource);
+                setIsHtmlFullScreen(false);
+              }}
+              onViewHtmlNewPage={() => {
+                setActiveHtmlResource(resource);
+                setIsHtmlFullScreen(true);
+              }}
             />
           ))}
         </div>
@@ -449,31 +460,53 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
       {/* HTML Resource Viewer Modal */}
       <AnimatePresence>
         {activeHtmlResource && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10">
+          <div className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-300 ${isHtmlFullScreen ? 'p-0' : 'p-4 sm:p-6 md:p-10'}`}>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setActiveHtmlResource(null)}
+              onClick={() => {
+                setActiveHtmlResource(null);
+                setIsHtmlFullScreen(false);
+              }}
               className="absolute inset-0 bg-gray-950/80 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full h-[85vh] max-w-6xl bg-white dark:bg-[#121214] border border-gray-100 dark:border-zinc-800 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
+              className={`relative bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+                isHtmlFullScreen 
+                  ? 'w-full h-full rounded-none border-0' 
+                  : 'w-full h-[85vh] max-w-6xl border border-gray-100 dark:border-zinc-800 rounded-[2rem]'
+              }`}
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800 shrink-0">
                 <div>
                   <h3 className="font-extrabold text-lg text-gray-950 dark:text-zinc-50">{activeHtmlResource.title}</h3>
                   <p className="text-xs text-gray-400 dark:text-zinc-500">Interactive Student Resource</p>
                 </div>
-                <button 
-                  onClick={() => setActiveHtmlResource(null)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-350 rounded-xl transition-colors cursor-pointer"
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsHtmlFullScreen(!isHtmlFullScreen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/45 dark:hover:bg-indigo-950/65 text-indigo-600 dark:text-indigo-400 font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-sm border border-indigo-100/30"
+                    title={isHtmlFullScreen ? "Minimize edge-to-edge view to popup dialog format" : "Open inside a clean edge-to-edge viewport as a new page within the website"}
+                  >
+                    <ExternalLink size={14} />
+                    <span>{isHtmlFullScreen ? "Minimize Screen" : "Open in New Page"}</span>
+                  </button>
+                  <div className="h-6 w-px bg-gray-200 dark:bg-zinc-800 mx-1"></div>
+                  <button 
+                    onClick={() => {
+                      setActiveHtmlResource(null);
+                      setIsHtmlFullScreen(false);
+                    }}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-350 rounded-xl transition-colors cursor-pointer"
+                    title="Close"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
               <div className="flex-1 bg-gray-50 dark:bg-[#070708] relative">
                 <iframe
@@ -491,12 +524,50 @@ export default function SubjectDetail({ subject, subjects, initialClass = null, 
   );
 }
 
-export const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void, onViewHtml?: () => void }> = ({ resource, onViewPdf, onViewHtml }) => {
-  const { user } = useAuth();
+export const openHtmlInNewTab = (resource: Resource) => {
+  try {
+    const dataUri = resource.url;
+    if (dataUri && dataUri.startsWith('data:')) {
+      const parts = dataUri.split(',');
+      const mimeString = parts[0].split(':')[1].split(';')[0];
+      const isBase64 = parts[0].includes('base64');
+      let ab;
+      if (isBase64) {
+        const byteString = atob(parts[1]);
+        ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+      } else {
+        const decoded = decodeURIComponent(parts[1]);
+        const encoder = new TextEncoder();
+        ab = encoder.encode(decoded);
+      }
+      const blob = new Blob([ab], { type: mimeString });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    } else if (dataUri) {
+      window.open(dataUri, '_blank');
+    }
+  } catch (e) {
+    console.error("Failed to open data URI in new tab:", e);
+    window.open(resource.url, '_blank');
+  }
+};
+
+export const ResourceCard: React.FC<{ 
+  resource: Resource; 
+  onViewPdf?: () => void; 
+  onViewHtml?: () => void;
+  onViewHtmlNewPage?: () => void;
+}> = ({ resource, onViewPdf, onViewHtml, onViewHtmlNewPage }) => {
+  const { user, isAdmin, userProfile } = useAuth();
   const userEmail = user?.email || 'anonymous';
   const bookmarksKey = `bookmarks_${userEmail}`;
 
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isLockedModalOpen, setIsLockedModalOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -522,67 +593,189 @@ export const ResourceCard: React.FC<{ resource: Resource, onViewPdf?: () => void
     } catch (_) {}
   };
 
+  const isSpecial = !!resource.isSpecialAccess;
+  const hasAccess = !isSpecial || isAdmin || !!userProfile?.specialAccess;
+
   const Icon = resource.type === 'pdf' ? FileText : resource.type === 'html' ? FileCode : resource.type === 'worksheet' ? ClipboardList : Youtube;
   const iconColor = resource.type === 'pdf' ? 'text-red-500' : resource.type === 'html' ? 'text-indigo-505' : resource.type === 'worksheet' ? 'text-blue-500' : 'text-rose-500';
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm group relative"
-    >
-      {/* Bookmark Toggle Button */}
-      <button
-        onClick={toggleBookmark}
-        className="absolute top-5 right-5 p-2 rounded-xl bg-gray-50 hover:bg-indigo-50 dark:bg-zinc-950 dark:hover:bg-zinc-850 text-gray-450 hover:text-indigo-600 transition-all cursor-pointer z-10"
-        title={isBookmarked ? "Remove Bookmark" : "Bookmark Resource"}
+    <>
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm group relative flex flex-col justify-between h-full"
       >
-        <Bookmark 
-          size={16} 
-          className={isBookmarked ? "fill-current text-indigo-600 dark:text-indigo-400" : ""} 
-        />
-      </button>
+        <div>
+          {/* Bookmark Toggle Button */}
+          <button
+            onClick={toggleBookmark}
+            className="absolute top-5 right-5 p-2 rounded-xl bg-gray-50 hover:bg-indigo-50 dark:bg-zinc-950 dark:hover:bg-zinc-850 text-gray-450 hover:text-indigo-600 transition-all cursor-pointer z-10"
+            title={isBookmarked ? "Remove Bookmark" : "Bookmark Resource"}
+          >
+            <Bookmark 
+              size={16} 
+              className={isBookmarked ? "fill-current text-indigo-600 dark:text-indigo-400" : ""} 
+            />
+          </button>
 
-      <div className={`p-3 rounded-xl bg-gray-50 dark:bg-zinc-950 w-fit mb-4 group-hover:scale-110 transition-transform ${iconColor}`}>
-         <Icon size={24} />
-      </div>
-      <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{resource.title}</h4>
-      <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed line-clamp-2">{resource.description || 'Access and work through high quality content.'}</p>
-      
-      {resource.type === 'youtube' ? (
-        <div className="aspect-video w-full rounded-2xl overflow-hidden mb-4 border border-gray-100 dark:border-zinc-800">
-           <iframe
-            className="w-full h-full"
-            src={resource.url}
-            title="YouTube video player"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            referrerPolicy="no-referrer"
-            allowFullScreen
-          ></iframe>
+          <div className={`p-3 rounded-xl bg-gray-50 dark:bg-zinc-950 w-fit mb-4 group-hover:scale-110 transition-transform ${iconColor}`}>
+             <Icon size={24} />
+          </div>
+
+          {/* Special Access indicators */}
+          {isSpecial && (
+            <div className="mb-3.5">
+              {hasAccess ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                  <Unlock size={11} className="shrink-0" />
+                  Unlocked Special Access
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/5 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                  <Lock size={11} className="shrink-0 animate-pulse" />
+                  Special Access Required
+                </span>
+              )}
+            </div>
+          )}
+
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{resource.title}</h4>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed line-clamp-2">{resource.description || 'Access and work through high quality content.'}</p>
         </div>
-      ) : resource.type === 'pdf' ? (
-        <button
-          onClick={onViewPdf}
-          className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl font-bold transition-colors cursor-pointer"
-        >
-          <Eye size={18} />
-          View Note File
-        </button>
-      ) : resource.type === 'html' ? (
-        <button
-          onClick={onViewHtml}
-          className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white dark:text-indigo-100 rounded-xl font-bold transition-colors cursor-pointer shadow-lg shadow-indigo-100 dark:shadow-none"
-        >
-          <Eye size={18} />
-          View Interactive HTML
-        </button>
-      ) : (
-        <a
-          href={resource.url}
-          className="flex items-center justify-center gap-2 w-full py-3 bg-gray-50 dark:bg-zinc-950 hover:bg-gray-100 dark:hover:bg-zinc-900 text-gray-700 dark:text-gray-300 rounded-xl font-bold transition-colors text-center cursor-pointer"
-        >
-          Download Worksheet
-        </a>
-      )}
-    </motion.div>
+        
+        <div>
+          {resource.type === 'youtube' ? (
+            !hasAccess ? (
+              <div 
+                onClick={() => setIsLockedModalOpen(true)}
+                className="aspect-video w-full rounded-2xl overflow-hidden mb-4 border border-gray-150 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4 text-center cursor-pointer relative group/video"
+              >
+                <div className="absolute inset-0 bg-amber-500/[0.01] dark:bg-amber-500/[0.03] group-hover/video:bg-amber-500/[0.04] transition-all"></div>
+                <div className="w-11 h-11 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-2 shrink-0">
+                  <Lock size={18} className="animate-bounce" />
+                </div>
+                <p className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Lesson Locked</p>
+                <p className="text-[10px] text-gray-400 dark:text-zinc-500 mt-1 leading-snug">Requires special access from Suresh Sir. Tap here to request.</p>
+              </div>
+            ) : (
+              <div className="aspect-video w-full rounded-2xl overflow-hidden mb-4 border border-gray-100 dark:border-zinc-800">
+                 <iframe
+                  className="w-full h-full"
+                  src={resource.url}
+                  title="YouTube video player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  referrerPolicy="no-referrer"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            )
+          ) : resource.type === 'pdf' ? (
+            <button
+              onClick={() => {
+                if (!hasAccess) {
+                  setIsLockedModalOpen(true);
+                } else if (onViewPdf) {
+                  onViewPdf();
+                }
+              }}
+              className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl font-bold transition-colors cursor-pointer"
+            >
+              {hasAccess ? <Eye size={18} /> : <Lock size={16} className="text-amber-500 animate-pulse shrink-0" />}
+              {hasAccess ? 'View Note File' : 'Locked Study File'}
+            </button>
+          ) : resource.type === 'html' ? (
+            <div className="flex flex-col gap-2 w-full mt-auto">
+              <button
+                onClick={() => {
+                  if (!hasAccess) {
+                    setIsLockedModalOpen(true);
+                  } else if (onViewHtml) {
+                    onViewHtml();
+                  }
+                }}
+                className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white dark:text-indigo-100 rounded-xl font-bold transition-colors cursor-pointer shadow-lg shadow-indigo-100 dark:shadow-none text-sm"
+              >
+                {hasAccess ? <Eye size={18} /> : <Lock size={16} className="text-amber-300 animate-pulse shrink-0" />}
+                {hasAccess ? 'View Interactive HTML' : 'Locked Interactive File'}
+              </button>
+              <button
+                onClick={() => {
+                  if (!hasAccess) {
+                    setIsLockedModalOpen(true);
+                  } else if (onViewHtmlNewPage) {
+                    onViewHtmlNewPage();
+                  } else {
+                    openHtmlInNewTab(resource);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-50 hover:bg-gray-100 dark:bg-zinc-950 dark:hover:bg-zinc-850 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl font-bold transition-colors cursor-pointer text-sm shadow-sm border border-gray-100 dark:border-zinc-800/80"
+              >
+                {hasAccess ? <ExternalLink size={16} /> : <Lock size={14} className="text-amber-505 shrink-0" />}
+                {hasAccess ? 'Open in New Page' : 'Request Access'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                if (!hasAccess) {
+                  setIsLockedModalOpen(true);
+                } else {
+                  window.open(resource.url, '_blank');
+                }
+              }}
+              className="flex items-center justify-center gap-2 w-full py-3 bg-gray-50 dark:bg-zinc-950 hover:bg-gray-100 dark:hover:bg-zinc-900 text-gray-700 dark:text-gray-300 rounded-xl font-bold transition-colors text-center cursor-pointer"
+            >
+              {!hasAccess ? <Lock size={15} className="text-amber-500 animate-pulse shrink-0" /> : <Download size={15} />}
+              {!hasAccess ? 'Locked Worksheet' : 'Download Worksheet'}
+            </button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Special Access Dialog Block */}
+      <AnimatePresence>
+        {isLockedModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLockedModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-amber-500/20 p-8 rounded-[2rem] shadow-2xl text-center z-10"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-400/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6">
+                <Lock size={26} className="animate-pulse" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 dark:text-zinc-50 tracking-tight mb-2">Special Access Required</h3>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 leading-relaxed mb-6">
+                "{resource.title}" requires teacher authorization. Request special access from <strong>Suresh Sir (Suresh Maths)</strong>.
+              </p>
+              
+              <div className="flex flex-col gap-2">
+                <a
+                  href={`mailto:balabhadrasaisathwik@gmail.com?subject=Special Access Request for ${encodeURIComponent(resource.title)}&body=Hello Suresh Sir,%0D%0A%0D%0AI would like to request Special Access for "${encodeURIComponent(resource.title)}" on Suresh Maths portal.%0D%0A%0D%0AMy Registered Email: ${encodeURIComponent(userEmail)}`}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-605 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-amber-500/10 text-center block"
+                >
+                  ✉️ Email Request to Sir
+                </a>
+                <button
+                  onClick={() => setIsLockedModalOpen(false)}
+                  className="w-full py-2.5 bg-gray-55 dark:bg-zinc-950 text-gray-650 dark:text-zinc-400 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Close Window
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };

@@ -6,6 +6,7 @@ export interface Resource {
   url: string;
   description?: string;
   category: 'notes' | 'worksheet' | 'model_paper' | 'interactive_learning';
+  isSpecialAccess?: boolean;
 }
 
 export interface Question {

@@ -27,6 +27,7 @@
         "url": { "type": "string" },
         "description": { "type": "string" },
         "category": { "type": "string", "enum": ["notes", "worksheet", "model_paper", "interactive_learning"] },
+        "isSpecialAccess": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "subjectId", "classId", "title", "type", "url"]
@@ -89,6 +90,21 @@
         "role": { "type": "string", "enum": ["admin"] }
       },
       "required": ["email", "role"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Registered learner account",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "isBlocked": { "type": "boolean" },
+        "specialAccess": { "type": "boolean" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
     }
   },
   "firestore": {
@@ -96,6 +112,7 @@
     "resources": { "schema": "Resource", "description": "Collection of all resources" },
     "quizzes": { "schema": "Quiz", "description": "Collection of quizzes" },
     "worksheets": { "schema": "Worksheet", "description": "Collection of worksheets" },
-    "admins": { "schema": "Admin", "description": "Whitelisted admin users" }
+    "admins": { "schema": "Admin", "description": "Whitelisted admin users" },
+    "users": { "schema": "User", "description": "Collection of learning users" }
   }
 }
